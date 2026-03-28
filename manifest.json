@@ -1,0 +1,10 @@
+{
+	"id": "obsidian-pantry",
+	"name": "Pantry",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Recipe management, meal planning, and nutrition tracking.",
+	"author": "OpenCode",
+	"authorUrl": "https://github.com/opencode",
+	"isDesktopOnly": false
+}
