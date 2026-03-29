@@ -6,6 +6,7 @@ import { EditWeeklyServingModal } from './EditWeeklyServingModal';
 export interface PlannedFoodItem {
     name: string;
     servings: number;
+    category?: string;
 }
 
 export class FoodListEditorModal extends Modal {
@@ -184,11 +185,22 @@ export class FoodListEditorModal extends Modal {
     private currentPlanContainer: HTMLElement;
 
     private addFood(name: string) {
+        const recipe = this.allRecipes.find(r => 
+            r.frontmatter.name === name || 
+            r.path.endsWith(name + '.md') ||
+            name === r.path.split('/').pop()?.replace('.md', '')
+        );
+        let category = 'Uncategorized';
+        if (recipe && recipe.frontmatter.category) {
+            category = recipe.frontmatter.category.trim();
+            category = category.charAt(0).toUpperCase() + category.slice(1);
+        }
+
         const existing = this.currentFoods.find(f => f.name === name);
         if (existing) {
             existing.servings++;
         } else {
-            this.currentFoods.push({ name, servings: 1 });
+            this.currentFoods.push({ name, servings: 1, category });
         }
         this.renderCurrentPlan();
     }
@@ -249,13 +261,14 @@ export class FoodListEditorModal extends Modal {
                         item.name,
                         recipe.frontmatter,
                         item.servings,
-                        [], // Categories
+                        this.categories, // Pass the actual categories here
                         this.settings,
                         (newServings, newCategory) => {
                             if (newServings <= 0) {
                                 this.currentFoods.splice(i, 1);
                             } else {
                                 this.currentFoods[i].servings = newServings;
+                                this.currentFoods[i].category = newCategory;
                             }
                             this.renderCurrentPlan();
                         }
