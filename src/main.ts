@@ -1,18 +1,18 @@
 import { App, Plugin, PluginSettingTab, Setting, Notice, requestUrl, parseYaml, TFile, setIcon } from "obsidian";
 import { PantryPluginSettings, DEFAULT_SETTINGS, PantrySettingsTab } from "./settings";
 import { RecipeFileManager } from "./services/RecipeFileManager";
-import { LLMAPIService } from "./services/LLMAPIService";
-import { FatSecretAPIService } from "./services/FatSecretAPIService";
-import { WeeklyNoteManager } from "./utils/WeeklyBalanceCalculator";
-import { RecipeInputModal } from "./modals/RecipeInputModal";
-import { RecipeImageModal } from "./modals/RecipeImageModal";
-import { WeeklyPlannerV2Modal } from "./modals/WeeklyPlannerV2Modal";
-import { FatSecretSearchModal } from "./modals/FatSecretSearchModal";
-import { AddMenuModal } from "./modals/AddMenuModal";
+import { LLMAPIService } from "./services/apis/LLMAPIService";
+import { FatSecretAPIService } from "./services/apis/FatSecretAPIService";
+import { WeeklyNoteManager } from "./services/WeeklyNoteManager";
+import { RecipeInputModal } from "./ui/modals/RecipeInputModal";
+import { RecipeImageModal } from "./ui/modals/RecipeImageModal";
+import { WeeklyPlannerV2Modal } from "./ui/modals/WeeklyPlannerV2Modal";
+import { FatSecretSearchModal } from "./ui/modals/FatSecretSearchModal";
+import { AddMenuModal } from "./ui/modals/AddMenuModal";
 import { registerTrackerProcessor } from "./processors/tracker";
 import { calculateWeeklyBalance } from "./calculators/weeklyBalance";
-import { FoodListEditorModal } from "./modals/FoodListEditorModal";
-import { EditWeeklyServingModal } from "./modals/EditWeeklyServingModal";
+import { FoodListEditorModal } from "./ui/modals/FoodListEditorModal";
+import { EditWeeklyServingModal } from "./ui/modals/EditWeeklyServingModal";
 
 export default class PantryPlugin extends Plugin {
     settings: PantryPluginSettings;
@@ -337,8 +337,9 @@ export default class PantryPlugin extends Plugin {
                             item.name,
                             recipe.frontmatter,
                             item.servings || 1,
+                            [], // Categories
                             this.settings,
-                            (newServings) => updateServing(newServings)
+                            (newServings, newCategory) => updateServing(newServings)
                         ).open();
                     } else {
                         new Notice("Recipe details not found.");

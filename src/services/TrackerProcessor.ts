@@ -1,11 +1,11 @@
 import { App, MarkdownView, Notice, TFile } from "obsidian";
 import { RecipeFileManager, FoodItemFrontmatter } from "./RecipeFileManager";
 import { PantryPluginSettings } from "../settings";
-import { TrackerCardRenderer } from "./TrackerCardRenderer";
-import { TrackerTableRenderer, RecipeDetail } from "./TrackerTableRenderer";
-import { WeeklyTrackerRenderer } from "./WeeklyTrackerRenderer";
-import { RecipeSearchModal } from "../modals/RecipeSearchModal";
-import { ServingSizeModal } from "../modals/ServingSizeModal";
+import { TrackerCardRenderer } from "../ui/renders/TrackerCardRenderer";
+import { TrackerTableRenderer, RecipeDetail } from "../ui/renders/TrackerTableRenderer";
+import { WeeklyTrackerRenderer } from "../ui/renders/WeeklyTrackerRenderer";
+import { RecipeSearchModal } from "../ui/modals/RecipeSearchModal";
+import { ServingSizeModal } from "../ui/modals/ServingSizeModal";
 import { getWeekStart, getWeekEnd, isDateInWeek, formatWeekRange, getDateFromWeek } from "../utils/helpers";
 import { calculateMacros } from "../calculators/macroCalculators";
 

@@ -1,5 +1,5 @@
-import { PantryPluginSettings } from '../settings';
-import { MacroAggregate } from './TrackerProcessor';
+import { PantryPluginSettings } from '../../settings';
+import { MacroAggregate } from '../../services/TrackerProcessor';
 import { setIcon } from 'obsidian';
 
 export interface RecipeDetail {

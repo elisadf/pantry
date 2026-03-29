@@ -1,6 +1,6 @@
 import { App, Modal, setIcon } from 'obsidian';
-import { FoodItemFrontmatter } from '../services/RecipeFileManager';
-import { PantryPluginSettings } from '../settings';
+import { FoodItemFrontmatter } from '../../services/RecipeFileManager';
+import { PantryPluginSettings } from '../../settings';
 import { EditWeeklyServingModal } from './EditWeeklyServingModal';
 
 export interface RecipeSchedule {
@@ -59,8 +59,9 @@ export class WeeklySchedulerModal extends Modal {
                     schedule.name,
                     schedule.frontmatter,
                     schedule.servings,
+                    [], // Categories
                     this.settings,
-                    (newServings) => {
+                    (newServings, newCategory) => {
                         schedule.servings = newServings;
                         this.display(); // re-render the list
                     }

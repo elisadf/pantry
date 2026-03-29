@@ -1,5 +1,5 @@
 import { App, Modal } from "obsidian";
-import PantryPlugin from "../main";
+import PantryPlugin from "../../main";
 import { RecipeInputModal } from "./RecipeInputModal";
 import { RecipeImageModal } from "./RecipeImageModal";
 import { FatSecretSearchModal } from "./FatSecretSearchModal";

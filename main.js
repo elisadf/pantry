@@ -34,10 +34,10 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/modals/ErrorModal.ts
+// src/ui/modals/ErrorModal.ts
 var import_obsidian4, ErrorModal;
 var init_ErrorModal = __esm({
-  "src/modals/ErrorModal.ts"() {
+  "src/ui/modals/ErrorModal.ts"() {
     import_obsidian4 = require("obsidian");
     ErrorModal = class extends import_obsidian4.Modal {
       constructor(app, message, retryAction) {
@@ -168,10 +168,10 @@ var init_fileGenerators = __esm({
   }
 });
 
-// src/modals/RecipeImageModal.ts
+// src/ui/modals/RecipeImageModal.ts
 var import_obsidian6, RecipeImageModal;
 var init_RecipeImageModal = __esm({
-  "src/modals/RecipeImageModal.ts"() {
+  "src/ui/modals/RecipeImageModal.ts"() {
     import_obsidian6 = require("obsidian");
     init_ErrorModal();
     init_fileGenerators();
@@ -301,10 +301,10 @@ var init_RecipeImageModal = __esm({
   }
 });
 
-// src/modals/FatSecretSearchModal.ts
+// src/ui/modals/FatSecretSearchModal.ts
 var import_obsidian7, FatSecretSearchModal;
 var init_FatSecretSearchModal = __esm({
-  "src/modals/FatSecretSearchModal.ts"() {
+  "src/ui/modals/FatSecretSearchModal.ts"() {
     import_obsidian7 = require("obsidian");
     init_ErrorModal();
     init_fileGenerators();
@@ -507,10 +507,10 @@ var init_energy = __esm({
   }
 });
 
-// src/modals/ManualFoodEntryModal.ts
+// src/ui/modals/ManualFoodEntryModal.ts
 var import_obsidian8, ManualFoodEntryModal;
 var init_ManualFoodEntryModal = __esm({
-  "src/modals/ManualFoodEntryModal.ts"() {
+  "src/ui/modals/ManualFoodEntryModal.ts"() {
     import_obsidian8 = require("obsidian");
     init_fileGenerators();
     init_energy();
@@ -772,14 +772,14 @@ var init_ManualFoodEntryModal = __esm({
   }
 });
 
-// src/modals/AddMenuModal.ts
+// src/ui/modals/AddMenuModal.ts
 var AddMenuModal_exports = {};
 __export(AddMenuModal_exports, {
   AddMenuModal: () => AddMenuModal
 });
 var import_obsidian9, AddMenuModal;
 var init_AddMenuModal = __esm({
-  "src/modals/AddMenuModal.ts"() {
+  "src/ui/modals/AddMenuModal.ts"() {
     import_obsidian9 = require("obsidian");
     init_RecipeInputModal();
     init_RecipeImageModal();
@@ -838,10 +838,10 @@ var init_AddMenuModal = __esm({
   }
 });
 
-// src/modals/RecipeInputModal.ts
+// src/ui/modals/RecipeInputModal.ts
 var import_obsidian10, RecipeInputModal;
 var init_RecipeInputModal = __esm({
-  "src/modals/RecipeInputModal.ts"() {
+  "src/ui/modals/RecipeInputModal.ts"() {
     import_obsidian10 = require("obsidian");
     init_ErrorModal();
     init_fileGenerators();
@@ -1362,7 +1362,7 @@ var RecipeFileManager = class {
   }
 };
 
-// src/services/LLMAPIService.ts
+// src/services/apis/LLMAPIService.ts
 var LLMAPIService = class {
   constructor(apiKey, endpoint = "https://openrouter.ai/api/v1/chat/completions", model = "google/gemini-2.5-flash") {
     this.apiKey = apiKey;
@@ -1634,7 +1634,7 @@ Rules:
   }
 };
 
-// src/services/FatSecretAPIService.ts
+// src/services/apis/FatSecretAPIService.ts
 var crypto = __toESM(require("crypto"));
 var FatSecretAPIService = class {
   constructor(consumerKey, consumerSecret, requestUrlFn) {
@@ -1839,7 +1839,7 @@ var FatSecretAPIService = class {
   }
 };
 
-// src/utils/WeeklyBalanceCalculator.ts
+// src/services/WeeklyNoteManager.ts
 var import_obsidian3 = require("obsidian");
 var WeeklyNoteManager = class {
   constructor(app, settings) {
@@ -1917,7 +1917,7 @@ var WeeklyNoteManager = class {
 init_RecipeInputModal();
 init_RecipeImageModal();
 
-// src/modals/WeeklyPlannerV2Modal.ts
+// src/ui/modals/WeeklyPlannerV2Modal.ts
 var import_obsidian13 = require("obsidian");
 
 // src/calculators/weeklyBalance.ts
@@ -2003,10 +2003,10 @@ function generateWeeklySummaryCodeblock(stats, energyUnit) {
   ].join("\n");
 }
 
-// src/modals/WeeklySchedulerModal.ts
+// src/ui/modals/WeeklySchedulerModal.ts
 var import_obsidian12 = require("obsidian");
 
-// src/modals/EditWeeklyServingModal.ts
+// src/ui/modals/EditWeeklyServingModal.ts
 var import_obsidian11 = require("obsidian");
 var EditWeeklyServingModal = class extends import_obsidian11.Modal {
   constructor(app, recipeName, frontmatter, currentServings, categories, settings, onConfirm) {
@@ -2101,7 +2101,7 @@ var EditWeeklyServingModal = class extends import_obsidian11.Modal {
   }
 };
 
-// src/modals/WeeklySchedulerModal.ts
+// src/ui/modals/WeeklySchedulerModal.ts
 var WeeklySchedulerModal = class extends import_obsidian12.Modal {
   constructor(app, recipes, settings, onConfirm) {
     super(app);
@@ -2136,8 +2136,10 @@ var WeeklySchedulerModal = class extends import_obsidian12.Modal {
           schedule.name,
           schedule.frontmatter,
           schedule.servings,
+          [],
+          // Categories
           this.settings,
-          (newServings) => {
+          (newServings, newCategory) => {
             schedule.servings = newServings;
             this.display();
           }
@@ -2157,7 +2159,7 @@ var WeeklySchedulerModal = class extends import_obsidian12.Modal {
   }
 };
 
-// src/modals/WeeklyPlannerV2Modal.ts
+// src/ui/modals/WeeklyPlannerV2Modal.ts
 var WeeklyPlannerV2Modal = class extends import_obsidian13.Modal {
   constructor(app, recipeManager, noteManager, settings) {
     super(app);
@@ -2449,7 +2451,7 @@ init_AddMenuModal();
 // src/services/TrackerProcessor.ts
 var import_obsidian17 = require("obsidian");
 
-// src/services/TrackerCardRenderer.ts
+// src/ui/renders/TrackerCardRenderer.ts
 var TrackerCardRenderer = class {
   /**
    * Renders the complete tracker widget
@@ -2549,7 +2551,7 @@ var TrackerCardRenderer = class {
   }
 };
 
-// src/services/TrackerTableRenderer.ts
+// src/ui/renders/TrackerTableRenderer.ts
 var import_obsidian14 = require("obsidian");
 var TrackerTableRenderer = class {
   renderTable(container, recipeDetails, aggregate, settings, onEditServingSize, onRemoveRecipe) {
@@ -2779,7 +2781,7 @@ function calculateMacroRatios(aggregate) {
   };
 }
 
-// src/services/WeeklyTrackerRenderer.ts
+// src/ui/renders/WeeklyTrackerRenderer.ts
 var WeeklyTrackerRenderer = class {
   /**
    * Renders the complete weekly tracker widget
@@ -3011,7 +3013,7 @@ var WeeklyTrackerRenderer = class {
   }
 };
 
-// src/modals/RecipeSearchModal.ts
+// src/ui/modals/RecipeSearchModal.ts
 var import_obsidian15 = require("obsidian");
 var RecipeSearchModal = class extends import_obsidian15.Modal {
   constructor(app, allRecipes, categories, onConfirm) {
@@ -3230,7 +3232,7 @@ var RecipeSearchModal = class extends import_obsidian15.Modal {
   }
 };
 
-// src/modals/ServingSizeModal.ts
+// src/ui/modals/ServingSizeModal.ts
 var import_obsidian16 = require("obsidian");
 var ServingSizeModal = class extends import_obsidian16.Modal {
   constructor(app, recipeName, currentServingSize, originalServingSize, currentMacros, onConfirm) {
@@ -3887,7 +3889,7 @@ function registerTrackerProcessor(plugin) {
   });
 }
 
-// src/modals/FoodListEditorModal.ts
+// src/ui/modals/FoodListEditorModal.ts
 var import_obsidian18 = require("obsidian");
 var FoodListEditorModal = class extends import_obsidian18.Modal {
   constructor(app, recipeManager, settings, currentFoods, onSave) {
@@ -4071,8 +4073,10 @@ var FoodListEditorModal = class extends import_obsidian18.Modal {
             item.name,
             recipe.frontmatter,
             item.servings,
+            [],
+            // Categories
             this.settings,
-            (newServings) => {
+            (newServings, newCategory) => {
               if (newServings <= 0) {
                 this.currentFoods.splice(i, 1);
               } else {
@@ -4345,8 +4349,10 @@ var PantryPlugin = class extends import_obsidian19.Plugin {
               item.name,
               recipe.frontmatter,
               item.servings || 1,
+              [],
+              // Categories
               this.settings,
-              (newServings) => updateServing(newServings)
+              (newServings, newCategory) => updateServing(newServings)
             ).open();
           } else {
             new import_obsidian19.Notice("Recipe details not found.");

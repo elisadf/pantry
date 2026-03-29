@@ -1,8 +1,8 @@
 import { App, Modal, Notice } from "obsidian";
-import { RecipeFileManager, FoodItemFrontmatter } from "../services/RecipeFileManager";
-import { WeeklyNoteManager } from "../utils/WeeklyBalanceCalculator";
-import { calculateWeeklyBalance, generateWeeklySummaryCodeblock } from "../calculators/weeklyBalance";
-import { PantryPluginSettings } from "../settings";
+import { RecipeFileManager, FoodItemFrontmatter } from "../../services/RecipeFileManager";
+import { WeeklyNoteManager } from "../../services/WeeklyNoteManager";
+import { calculateWeeklyBalance, generateWeeklySummaryCodeblock } from "../../calculators/weeklyBalance";
+import { PantryPluginSettings } from "../../settings";
 import { WeeklySchedulerModal } from "./WeeklySchedulerModal";
 
 export class WeeklyPlannerV2Modal extends Modal {

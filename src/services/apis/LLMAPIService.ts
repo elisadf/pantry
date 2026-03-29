@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import { RecipeInput } from "../core/fileGenerators";
+import { RecipeInput } from "../../core/fileGenerators";
 
 export class LLMAPIService {
     private apiKey: string;

@@ -1,7 +1,7 @@
 import { App, Modal, Notice, Component, normalizePath } from 'obsidian';
-import PantryPlugin from '../main';
-import { createPantryFile, FoodItemInput, sanitiseFileName } from '../core/fileGenerators';
-import { convertKcalToKj, convertKjToKcal } from '../calculators/energy';
+import PantryPlugin from '../../main';
+import { createPantryFile, FoodItemInput, sanitiseFileName } from '../../core/fileGenerators';
+import { convertKcalToKj, convertKjToKcal } from '../../calculators/energy';
 
 export class ManualFoodEntryModal extends Modal {
     plugin: PantryPlugin;
