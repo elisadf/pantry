@@ -155,19 +155,26 @@ export class WeeklyPlannerRenderer {
 
         for (const category of sortedCategories) {
             const categoryFoods = foodsByCategory[category];
+            const itemCount = categoryFoods.length;
             
-            const categoryHeader = list.createEl('h4', { text: category });
-            categoryHeader.style.marginTop = '12px';
-            categoryHeader.style.marginBottom = '6px';
-            categoryHeader.style.color = 'var(--text-muted)';
-            categoryHeader.style.fontSize = '0.9em';
-            categoryHeader.style.textTransform = 'uppercase';
-            categoryHeader.style.letterSpacing = '0.05em';
-            categoryHeader.style.borderBottom = '1px solid var(--background-modifier-border)';
-            categoryHeader.style.paddingBottom = '4px';
+            const detailsEl = list.createEl('details');
+            detailsEl.setAttribute('open', 'true');
+            detailsEl.style.marginTop = '12px';
+            
+            const summaryEl = detailsEl.createEl('summary', { text: `${category} (${itemCount} item${itemCount !== 1 ? 's' : ''})` });
+            summaryEl.style.marginBottom = '6px';
+            summaryEl.style.color = 'var(--text-muted)';
+            summaryEl.style.fontSize = '0.9em';
+            summaryEl.style.textTransform = 'uppercase';
+            summaryEl.style.letterSpacing = '0.05em';
+            summaryEl.style.borderBottom = '1px solid var(--background-modifier-border)';
+            summaryEl.style.paddingBottom = '4px';
+            summaryEl.style.cursor = 'pointer';
+
+            const itemsContainer = detailsEl.createDiv({ cls: 'weeklyplanner-category-items' });
 
             for (const item of categoryFoods) {
-                const row = list.createDiv({ cls: 'scheduler-row' });
+                const row = itemsContainer.createDiv({ cls: 'scheduler-row' });
                 row.style.display = 'flex';
                 row.style.alignItems = 'center';
                 row.style.justifyContent = 'space-between';
@@ -244,9 +251,8 @@ export class WeeklyPlannerRenderer {
                     if (recipe) {
                         new EditWeeklyServingModal(
                             app,
-                            item.name,
+                            { name: item.name, servings: item.servings || 1, category: item.category },
                             recipe.frontmatter,
-                            item.servings || 1,
                             categories, // Categories
                             settings,
                             (newServings, newCategory) => updateServing(newServings, newCategory)

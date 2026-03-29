@@ -1,9 +1,11 @@
 import { App, Modal, Setting } from "obsidian";
 import { FoodItemFrontmatter } from "../../services/RecipeFileManager";
 import { PantryPluginSettings } from "../../settings";
+import { WeeklyFoodItem } from "../../data/WeeklyPlannerData";
+import { calculateMacros } from "../../calculators/macroCalculators";
 
 export class EditWeeklyServingModal extends Modal {
-    private recipeName: string;
+    private item: WeeklyFoodItem;
     private frontmatter: FoodItemFrontmatter;
     private newServings: number;
     private categories: string[];
@@ -14,20 +16,19 @@ export class EditWeeklyServingModal extends Modal {
 
     constructor(
         app: App,
-        recipeName: string,
+        item: WeeklyFoodItem,
         frontmatter: FoodItemFrontmatter,
-        currentServings: number,
         categories: string[],
         settings: PantryPluginSettings,
         onConfirm: (newServings: number, newCategory: string) => void
     ) {
         super(app);
-        this.recipeName = recipeName;
+        this.item = item;
         this.frontmatter = frontmatter;
-        this.newServings = currentServings;
+        this.newServings = item.servings;
         this.categories = categories;
 
-        let initialCategory = (this.frontmatter.category || 'Uncategorized').trim();
+        let initialCategory = (this.item.category || this.frontmatter.category || 'Uncategorized').trim();
         initialCategory = initialCategory.charAt(0).toUpperCase() + initialCategory.slice(1);
         this.selectedCategory = initialCategory;
 
@@ -40,7 +41,7 @@ export class EditWeeklyServingModal extends Modal {
         contentEl.empty();
         
         contentEl.createEl("h2", { text: `Edit Weekly Quantity` });
-        contentEl.createEl("h3", { text: this.recipeName, cls: "serving-size-modal-recipe-name" });
+        contentEl.createEl("h3", { text: this.item.name, cls: "serving-size-modal-recipe-name" });
 
         const counterContainer = contentEl.createDiv({ cls: 'scheduler-counter' });
         counterContainer.style.justifyContent = 'center';
@@ -121,11 +122,18 @@ export class EditWeeklyServingModal extends Modal {
         const calMultiplier = this.settings.energyUnit === 'kcal' ? 1 : 4.184;
         const calUnit = this.settings.energyUnit === 'kcal' ? 'kcal' : 'kJ';
 
-        const baseCals = (this.frontmatter.calorie_estimate_kcal || 0) * calMultiplier;
-        const baseProtein = this.frontmatter.protein_estimate_g || 0;
-        const baseFat = this.frontmatter.fat_estimate_g || 0;
-        const baseCarbs = this.frontmatter.carbs_estimate_g || 0;
-        const baseFibre = this.frontmatter.fibre_estimate_g || 0;
+        // Use calculateMacros to handle correct serving_size parsing
+        // We pass the frontmatter as the "recipe" and construct a pseudo-entry
+        const macroData = calculateMacros(
+            { name: this.item.name }, // no custom serving size here, just calculate for 1 portion based on recipe serving_size 
+            this.frontmatter
+        );
+
+        const baseCals = (macroData?.macros.calories || 0) * calMultiplier;
+        const baseProtein = macroData?.macros.protein || 0;
+        const baseFat = macroData?.macros.fat || 0;
+        const baseCarbs = macroData?.macros.carbs || 0;
+        const baseFibre = macroData?.macros.fibre || 0;
 
         renderMacro("Energy", Math.round(baseCals * this.newServings), ` ${calUnit}`);
         renderMacro("Protein", Math.round(baseProtein * this.newServings * 10) / 10, "g");

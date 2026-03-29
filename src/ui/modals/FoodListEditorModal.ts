@@ -258,9 +258,8 @@ export class FoodListEditorModal extends Modal {
                 if (recipe) {
                     new EditWeeklyServingModal(
                         this.app,
-                        item.name,
+                        { name: item.name, servings: item.servings, category: item.category },
                         recipe.frontmatter,
-                        item.servings,
                         this.categories, // Pass the actual categories here
                         this.settings,
                         (newServings, newCategory) => {

@@ -17,6 +17,7 @@
   "type": "commonjs",
   "devDependencies": {
     "@types/jest": "^30.0.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.3.5",
     "builtin-modules": "^5.0.0",
     "dotenv": "^17.3.1",
@@ -30,6 +31,7 @@
   },
   "dependencies": {
     "@types/crypto-js": "^4.2.2",
-    "crypto-js": "^4.2.0"
+    "crypto-js": "^4.2.0",
+    "js-yaml": "^4.1.1"
   }
 }
