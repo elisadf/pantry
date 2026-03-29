@@ -1,9 +1,5 @@
-export interface WeeklyFoodItem {
-    name: string;
-    servings: number;
-    category?: string;
-}
+import { CategoryItem } from './CategoriesData';
 
 export interface WeeklyPlannerData {
-    foods: WeeklyFoodItem[];
+    foods: CategoryItem[];
 }

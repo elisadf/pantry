@@ -1,11 +1,11 @@
 import { App, Modal, Setting } from "obsidian";
 import { FoodItemFrontmatter } from "../../services/RecipeFileManager";
 import { PantryPluginSettings } from "../../settings";
-import { WeeklyFoodItem } from "../../data/WeeklyPlannerData";
+import { CategoryItemServings } from "../../data/CategoriesData";
 import { calculateMacros } from "../../calculators/macroCalculators";
 
 export class EditWeeklyServingModal extends Modal {
-    private item: WeeklyFoodItem;
+    private item: CategoryItemServings;
     private frontmatter: FoodItemFrontmatter;
     private newServings: number;
     private categories: string[];
@@ -16,7 +16,7 @@ export class EditWeeklyServingModal extends Modal {
 
     constructor(
         app: App,
-        item: WeeklyFoodItem,
+        item: CategoryItemServings,
         frontmatter: FoodItemFrontmatter,
         categories: string[],
         settings: PantryPluginSettings,
@@ -125,7 +125,7 @@ export class EditWeeklyServingModal extends Modal {
         // Use calculateMacros to handle correct serving_size parsing
         // We pass the frontmatter as the "recipe" and construct a pseudo-entry
         const macroData = calculateMacros(
-            { name: this.item.name }, // no custom serving size here, just calculate for 1 portion based on recipe serving_size 
+            { name: this.item.name, units: undefined, category: '' } as any, // no custom serving size here, just calculate for 1 portion based on recipe serving_size 
             this.frontmatter
         );
 

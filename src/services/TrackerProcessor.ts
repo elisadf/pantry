@@ -1,4 +1,4 @@
-import { App, MarkdownView, Notice, TFile } from "obsidian";
+import { App, MarkdownView, Notice, TFile, parseYaml } from "obsidian";
 import { RecipeFileManager, FoodItemFrontmatter } from "./RecipeFileManager";
 import { PantryPluginSettings } from "../settings";
 import { TrackerCardRenderer } from "../ui/renders/TrackerCardRenderer";
@@ -8,16 +8,11 @@ import { RecipeSearchModal } from "../ui/modals/RecipeSearchModal";
 import { ServingSizeModal } from "../ui/modals/ServingSizeModal";
 import { getWeekStart, getWeekEnd, isDateInWeek, formatWeekRange, getDateFromWeek } from "../utils/helpers";
 import { calculateMacros } from "../calculators/macroCalculators";
-
-export interface TrackerEntry {
-    name: string;
-    servingSize?: number;
-    meal?: string;
-}
+import { CategoryItem } from "../data/CategoriesData";
 
 export interface TrackerData {
     date: string;
-    entries: TrackerEntry[];
+    entries: CategoryItem[];
     originalId: string; // The literal ID value used in the block, before evaluation
 }
 
@@ -93,11 +88,50 @@ export class TrackerProcessor {
      */
     parseBlock(source: string): TrackerData | null {
         console.info("[Pantry] Parsing block source:\n", source);
+
+        try {
+            const parsedYaml = parseYaml(source);
+            if (parsedYaml && typeof parsedYaml === 'object' && parsedYaml.id) {
+                console.info("[Pantry] Successfully parsed YAML block.");
+                const dateStr = String(parsedYaml.id).trim();
+                let date = '';
+                
+                if (dateStr.toLowerCase() === 'today' || dateStr === '') {
+                    date = this.getTodayDateString();
+                    console.info(`[Pantry] Parsed 'today' date string into: ${date}`);
+                } else if (dateStr.toLowerCase() === 'week') {
+                    date = 'week';
+                    console.info(`[Pantry] Parsed 'week' date string`);
+                } else if (getDateFromWeek(dateStr)) {
+                    date = dateStr;
+                    console.info(`[Pantry] Parsed specific week string: ${date}`);
+                } else {
+                    date = dateStr;
+                    console.info(`[Pantry] Parsed explicitly provided date string: ${date}`);
+                }
+
+                const entries: CategoryItem[] = [];
+                if (Array.isArray(parsedYaml.foods)) {
+                    for (const food of parsedYaml.foods) {
+                        entries.push({
+                            name: food.name,
+                            units: food.units,
+                            category: food.category || 'Uncategorized'
+                        });
+                    }
+                }
+
+                return { date, entries, originalId: dateStr };
+            }
+        } catch (e) {
+            console.info("[Pantry] Not a valid YAML block, falling back to legacy plain-text format.");
+        }
+
         const lines = source.split('\n').map(l => l.trim()).filter(l => l !== '');
         
         let date = '';
         let originalId = '';
-        const entries: TrackerEntry[] = [];
+        const entries: CategoryItem[] = [];
         let currentMeal = 'Uncategorized';
 
         for (const line of lines) {
@@ -131,8 +165,8 @@ export class TrackerProcessor {
             const { name, servingSize } = this.parseEntryNameAndServingSize(line);
             entries.push({
                 name,
-                servingSize,
-                meal: currentMeal
+                units: servingSize || 100, // Legacy support default units
+                category: currentMeal
             });
         }
 
@@ -328,7 +362,7 @@ export class TrackerProcessor {
                         notFound: false,
                         originalServingSize,
                         servingSize,
-                        meal: entry.meal
+                        category: entry.category
                     });
                 } else {
                     // Recipe found but invalid serving size
@@ -337,7 +371,7 @@ export class TrackerProcessor {
                         name: entry.name,
                         macros: null,
                         notFound: false,
-                        meal: entry.meal
+                        category: entry.category
                     });
                 }
             } else {
@@ -346,7 +380,7 @@ export class TrackerProcessor {
                     name: entry.name,
                     macros: null,
                     notFound: true,
-                    meal: entry.meal
+                    category: entry.category
                 });
             }
         }
@@ -355,228 +389,110 @@ export class TrackerProcessor {
         return { aggregate, recipeDetails };
     }
 
-    async handleAddRecipesToBlock(source: string, el: HTMLElement, ctx: any, selectedNames: string[], selectedMeal: string) {
+    private serializeToYaml(data: TrackerData): string {
+        let yaml = `id: ${data.originalId}\n`;
+        if (data.entries.length > 0) {
+            yaml += `foods:\n`;
+            for (const entry of data.entries) {
+                yaml += `  - name: ${entry.name}\n`;
+                if (entry.units !== undefined) {
+                    yaml += `    units: ${entry.units}\n`;
+                }
+                yaml += `    category: ${entry.category}\n`;
+            }
+        }
+        return yaml;
+    }
+
+    async handleAddRecipesToBlock(source: string, el: HTMLElement, ctx: any, selectedNames: string[], selectedCategory: string) {
         if (!ctx || !ctx.sourcePath) {
             new Notice("Could not determine current file. Please try again.");
             return;
         }
 
         const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-        if (!(file instanceof TFile)) {
-            new Notice("Current file not found.");
-            return;
+        if (!(file instanceof TFile)) return;
+
+        const data = this.parseBlock(source);
+        if (!data) return;
+
+        for (const name of selectedNames) {
+            data.entries.push({
+                name,
+                units: 100, // Default units for new recipes
+                category: selectedCategory
+            });
         }
 
+        const newYaml = this.serializeToYaml(data).trimEnd();
+        
+        await this.updateBlockContent(file, el, ctx, source, newYaml);
+        new Notice(`Added ${selectedNames.length} recipe(s) to tracker.`);
+    }
+
+    async handleServingSizeUpdate(oldEntryName: string, newUnits: number, source: string, el: HTMLElement, ctx: any) {
+        if (!ctx || !ctx.sourcePath) return;
+        const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+        if (!(file instanceof TFile)) return;
+
+        const data = this.parseBlock(source);
+        if (!data) return;
+
+        let found = false;
+        for (const entry of data.entries) {
+            if (entry.name === oldEntryName) {
+                entry.units = newUnits;
+                found = true;
+                break;
+            }
+        }
+
+        if (found) {
+            const newYaml = this.serializeToYaml(data).trimEnd();
+            await this.updateBlockContent(file, el, ctx, source, newYaml);
+            new Notice(`Updated serving size for ${oldEntryName}.`);
+        } else {
+            new Notice("Could not find the entry in the block to update.");
+        }
+    }
+
+    async handleRemoveRecipe(entryName: string, source: string, el: HTMLElement, ctx: any) {
+        if (!ctx || !ctx.sourcePath) return;
+        const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+        if (!(file instanceof TFile)) return;
+
+        const data = this.parseBlock(source);
+        if (!data) return;
+
+        const initialLength = data.entries.length;
+        data.entries = data.entries.filter(e => e.name !== entryName);
+
+        if (data.entries.length < initialLength) {
+            const newYaml = this.serializeToYaml(data).trimEnd();
+            await this.updateBlockContent(file, el, ctx, source, newYaml);
+            new Notice(`Removed ${entryName} from tracker.`);
+        } else {
+            new Notice("Could not find the entry in the block to remove.");
+        }
+    }
+
+    private async updateBlockContent(file: TFile, el: HTMLElement, ctx: any, source: string, newBlockContent: string) {
         const content = await this.app.vault.read(file);
         const sectionInfo = ctx.getSectionInfo(el);
         let newContent = "";
 
-        const blockLines = source.trimEnd().split('\n');
-        let insertIndex = blockLines.length;
-
-        if (selectedMeal === 'Uncategorized') {
-            insertIndex = 0;
-            for (let i = 0; i < blockLines.length; i++) {
-                if (blockLines[i].toLowerCase().startsWith('id:')) {
-                    insertIndex = i + 1;
-                    break;
-                }
-            }
-            blockLines.splice(insertIndex, 0, ...selectedNames);
-        } else {
-            let mealHeaderIndex = -1;
-            let nextHeaderIndex = -1;
-            
-            for (let i = 0; i < blockLines.length; i++) {
-                const line = blockLines[i].trim();
-                if (line.startsWith('#')) {
-                    const headerName = line.replace(/^#+\s*/, '').trim();
-                    if (headerName === selectedMeal) {
-                        mealHeaderIndex = i;
-                    } else if (mealHeaderIndex !== -1 && nextHeaderIndex === -1) {
-                        nextHeaderIndex = i;
-                    }
-                }
-            }
-
-            if (mealHeaderIndex !== -1) {
-                insertIndex = nextHeaderIndex !== -1 ? nextHeaderIndex : blockLines.length;
-                blockLines.splice(insertIndex, 0, ...selectedNames);
-            } else {
-                blockLines.push(`## ${selectedMeal}`);
-                blockLines.push(...selectedNames);
-            }
-        }
-
-        const newBlockContent = blockLines.join('\n');
-
         if (sectionInfo) {
             const lines = content.split('\n');
-            lines.splice(sectionInfo.lineStart + 1, sectionInfo.lineEnd - sectionInfo.lineStart - 1, ...blockLines);
+            lines.splice(sectionInfo.lineStart + 1, sectionInfo.lineEnd - sectionInfo.lineStart - 1, ...newBlockContent.split('\n'));
             newContent = lines.join('\n');
         } else {
-            // Fallback: simple text replacement if getSectionInfo fails
             newContent = content.replace(source.trimEnd(), newBlockContent);
-            
             if (newContent === content) {
                 new Notice("Could not safely update the tracker block. The file might have changed.");
                 return;
             }
         }
-        
         await this.app.vault.modify(file, newContent);
-        new Notice(`Added ${selectedNames.length} recipe(s) to tracker.`);
-    }
-
-    async handleServingSizeUpdate(
-        oldEntryName: string,
-        newServingSize: number,
-        source: string,
-        el: HTMLElement,
-        ctx: any
-    ): Promise<void> {
-        if (!ctx || !ctx.sourcePath) {
-            new Notice("Could not determine current file. Please try again.");
-            return;
-        }
-
-        const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-        if (!(file instanceof TFile)) {
-            new Notice("Current file not found.");
-            return;
-        }
-
-        const content = await this.app.vault.read(file);
-        const sectionInfo = ctx.getSectionInfo(el);
-        let newContent = "";
-
-        if (sectionInfo) {
-            const lines = content.split('\n');
-            const blockLines = lines.slice(sectionInfo.lineStart, sectionInfo.lineEnd + 1);
-            
-            let found = false;
-            for (let i = 0; i < blockLines.length; i++) {
-                const line = blockLines[i];
-                if (line.trim().toLowerCase().startsWith('id:')) continue;
-                if (line.trim().startsWith('```')) continue;
-                
-                const { name } = this.parseEntryNameAndServingSize(line.trim());
-                if (name === oldEntryName && !found) {
-                    const leadingWhitespace = line.match(/^\s*/)?.[0] || '';
-                    blockLines[i] = `${leadingWhitespace}${oldEntryName} (${newServingSize}g)`;
-                    found = true;
-                }
-            }
-            
-            if (found) {
-                lines.splice(sectionInfo.lineStart, sectionInfo.lineEnd - sectionInfo.lineStart + 1, ...blockLines);
-                newContent = lines.join('\n');
-            } else {
-                new Notice("Could not find the entry in the block to update.");
-                return;
-            }
-        } else {
-            // Fallback
-            const lines = source.split('\n');
-            let found = false;
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                if (line.trim().toLowerCase().startsWith('id:')) continue;
-                
-                const { name } = this.parseEntryNameAndServingSize(line.trim());
-                if (name === oldEntryName && !found) {
-                    const leadingWhitespace = line.match(/^\s*/)?.[0] || '';
-                    lines[i] = `${leadingWhitespace}${oldEntryName} (${newServingSize}g)`;
-                    found = true;
-                }
-            }
-            
-            if (found) {
-                const newBlockContent = lines.join('\n');
-                newContent = content.replace(source.trimEnd(), newBlockContent.trimEnd());
-            } else {
-                new Notice("Could not find the entry in the block to update.");
-                return;
-            }
-        }
-        
-        await this.app.vault.modify(file, newContent);
-        new Notice(`Updated serving size for ${oldEntryName}.`);
-    }
-
-    async handleRemoveRecipe(
-        entryName: string,
-        source: string,
-        el: HTMLElement,
-        ctx: any
-    ): Promise<void> {
-        if (!ctx || !ctx.sourcePath) {
-            new Notice("Could not determine current file. Please try again.");
-            return;
-        }
-
-        const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-        if (!(file instanceof TFile)) {
-            new Notice("Current file not found.");
-            return;
-        }
-
-        const content = await this.app.vault.read(file);
-        const sectionInfo = ctx.getSectionInfo(el);
-        let newContent = "";
-
-        if (sectionInfo) {
-            const lines = content.split('\n');
-            const blockLines = lines.slice(sectionInfo.lineStart, sectionInfo.lineEnd + 1);
-            
-            let foundIndex = -1;
-            for (let i = 0; i < blockLines.length; i++) {
-                const line = blockLines[i];
-                if (line.trim().toLowerCase().startsWith('id:')) continue;
-                if (line.trim().startsWith('```')) continue;
-                
-                const { name } = this.parseEntryNameAndServingSize(line.trim());
-                if (name === entryName) {
-                    foundIndex = i;
-                    break;
-                }
-            }
-            
-            if (foundIndex !== -1) {
-                blockLines.splice(foundIndex, 1);
-                lines.splice(sectionInfo.lineStart, sectionInfo.lineEnd - sectionInfo.lineStart + 1, ...blockLines);
-                newContent = lines.join('\n');
-            } else {
-                new Notice("Could not find the entry in the block to remove.");
-                return;
-            }
-        } else {
-            // Fallback
-            const lines = source.split('\n');
-            let foundIndex = -1;
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                if (line.trim().toLowerCase().startsWith('id:')) continue;
-                
-                const { name } = this.parseEntryNameAndServingSize(line.trim());
-                if (name === entryName) {
-                    foundIndex = i;
-                    break;
-                }
-            }
-            
-            if (foundIndex !== -1) {
-                lines.splice(foundIndex, 1);
-                const newBlockContent = lines.join('\n');
-                newContent = content.replace(source.trimEnd(), newBlockContent.trimEnd());
-            } else {
-                new Notice("Could not find the entry in the block to remove.");
-                return;
-            }
-        }
-        
-        await this.app.vault.modify(file, newContent);
-        new Notice(`Removed ${entryName} from tracker.`);
     }
 
     /**
