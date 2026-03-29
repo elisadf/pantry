@@ -8,7 +8,7 @@ import { WeeklyTrackerRenderer } from "../ui/renders/WeeklyTrackerRenderer";
 import { RecipeSearchModal } from "../ui/modals/RecipeSearchModal";
 import { ServingSizeModal } from "../ui/modals/ServingSizeModal";
 import { getWeekStart, getWeekEnd, isDateInWeek, formatWeekRange, getDateFromWeek } from "../utils/helpers";
-import { calculateMacros } from "../calculators/macroCalculators";
+import { calculateMacros, parseServingSize } from "../calculators/macroCalculators";
 import { CategoryItem } from "../data/CategoriesData";
 
 export interface TrackerData {
@@ -420,9 +420,19 @@ export class TrackerProcessor {
         if (!data) return;
 
         for (const name of selectedNames) {
+            const recipeFrontmatter = await this.findRecipeByName(name);
+            let defaultUnits = 100;
+            
+            if (recipeFrontmatter) {
+                const parsedSize = parseServingSize(recipeFrontmatter.serving_size ?? recipeFrontmatter.default_serving_size);
+                if (parsedSize !== null) {
+                    defaultUnits = parsedSize;
+                }
+            }
+
             data.entries.push({
                 name,
-                units: 100, // Default units for new recipes
+                units: defaultUnits,
                 category: selectedCategory
             });
         }

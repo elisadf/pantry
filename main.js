@@ -3650,6 +3650,7 @@ var TrackerProcessor = class {
     return yaml;
   }
   async handleAddRecipesToBlock(source, el, ctx, selectedNames, selectedCategory) {
+    var _a;
     if (!ctx || !ctx.sourcePath) {
       new import_obsidian17.Notice("Could not determine current file. Please try again.");
       return;
@@ -3659,10 +3660,17 @@ var TrackerProcessor = class {
     const data = this.parseBlock(source);
     if (!data) return;
     for (const name of selectedNames) {
+      const recipeFrontmatter = await this.findRecipeByName(name);
+      let defaultUnits = 100;
+      if (recipeFrontmatter) {
+        const parsedSize = parseServingSize((_a = recipeFrontmatter.serving_size) != null ? _a : recipeFrontmatter.default_serving_size);
+        if (parsedSize !== null) {
+          defaultUnits = parsedSize;
+        }
+      }
       data.entries.push({
         name,
-        units: 100,
-        // Default units for new recipes
+        units: defaultUnits,
         category: selectedCategory
       });
     }
