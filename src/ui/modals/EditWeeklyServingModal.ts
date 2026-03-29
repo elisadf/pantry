@@ -1,6 +1,6 @@
 import { App, Modal, Setting } from "obsidian";
-import { FoodItemFrontmatter } from "../services/RecipeFileManager";
-import { PantryPluginSettings } from "../settings";
+import { FoodItemFrontmatter } from "../../services/RecipeFileManager";
+import { PantryPluginSettings } from "../../settings";
 
 export class EditWeeklyServingModal extends Modal {
     private recipeName: string;

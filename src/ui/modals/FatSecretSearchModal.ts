@@ -1,8 +1,8 @@
 import { App, Modal, Notice, Setting, normalizePath } from "obsidian";
-import { FatSecretAPIService, FatSecretFoodSearchItem } from "../services/FatSecretAPIService";
-import { RecipeFileManager, FoodItemFrontmatter } from "../services/RecipeFileManager";
+import { FatSecretAPIService, FatSecretFoodSearchItem } from "../../services/apis/FatSecretAPIService";
+import { RecipeFileManager, FoodItemFrontmatter } from "../../services/RecipeFileManager";
 import { ErrorModal } from "./ErrorModal";
-import { createPantryFile, FoodItemInput } from "../core/fileGenerators";
+import { createPantryFile, FoodItemInput } from "../../core/fileGenerators";
 
 export class FatSecretSearchModal extends Modal {
     private fatSecretService: FatSecretAPIService;

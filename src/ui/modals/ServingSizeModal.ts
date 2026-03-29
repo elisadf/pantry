@@ -1,5 +1,5 @@
 import { App, Modal, Setting } from "obsidian";
-import { MacroAggregate } from "../services/TrackerProcessor";
+import { MacroAggregate } from "../../services/TrackerProcessor";
 
 export class ServingSizeModal extends Modal {
     private recipeName: string;

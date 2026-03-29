@@ -1,24 +1,21 @@
 import { App, Modal, Notice, normalizePath } from "obsidian";
-import { LLMAPIService } from "../services/LLMAPIService";
-import { RecipeFileManager } from "../services/RecipeFileManager";
+import { LLMAPIService } from "../../services/apis/LLMAPIService";
+import { RecipeFileManager } from "../../services/RecipeFileManager";
 import { ErrorModal } from "./ErrorModal";
-import { createPantryFile, RecipeInput } from "../core/fileGenerators";
+import { createPantryFile, RecipeInput } from "../../core/fileGenerators";
 
-export class RecipeInputModal extends Modal {
-    private mode: "url" | "manual";
+export class RecipeImageModal extends Modal {
     private llmService: LLMAPIService;
     private recipeManager: RecipeFileManager;
     
-    private urlInput: string = "";
-    private nameInput: string = "";
-    private ingredientsInput: string = "";
+    private selectedFile: File | null = null;
+    private fileInputEl: HTMLInputElement | null = null;
     
     private parsedData: RecipeInput | null = null;
     private isProcessing: boolean = false;
 
-    constructor(app: App, mode: "url" | "manual", llmService: LLMAPIService, recipeManager: RecipeFileManager) {
+    constructor(app: App, llmService: LLMAPIService, recipeManager: RecipeFileManager) {
         super(app);
-        this.mode = mode;
         this.llmService = llmService;
         this.recipeManager = recipeManager;
     }
@@ -50,44 +47,33 @@ export class RecipeInputModal extends Modal {
         };
 
                 
-        const text = this.mode === "url" ? "Add a recipe 👩‍🍳" : "Add Manual Recipe 👩‍🍳";
-        header.createEl("h2", { text, cls: "pantry-modal-title" });
+        header.createEl("h2", { text: "Add from screenshot 📷", cls: "pantry-modal-title" });
 
         const formContainer = container.createDiv({ cls: 'manual-entry-form' });
+        
+        const group = formContainer.createDiv("pantry-form-row");
+        group.createEl("p", { text: "Upload a screenshot or photo of a recipe (e.g., from Thermomix).", cls: "pantry-form-desc" });
 
-        if (this.mode === "url") {
-            const inputContainer = formContainer.createDiv("pantry-form-row");
-            const input = inputContainer.createEl("input", { type: "text", value: this.urlInput, cls: "pantry-url-input" });
-            input.placeholder = "Paste your URL here";
-            input.onchange = (e) => this.urlInput = (e.target as HTMLInputElement).value;
-            input.onkeydown = (e) => {
-                if (e.key === 'Enter') {
-                    this.handleParse();
-                }
-            };
-        } else {
-            const nameGroup = formContainer.createDiv("pantry-form-row");
-            nameGroup.createEl("label", { text: "Recipe Name (Optional)", cls: "pantry-form-label" });
-            const nameInputEl = nameGroup.createEl("input", { type: "text", value: this.nameInput, cls: "pantry-form-input" });
-            nameInputEl.placeholder = "My Awesome Recipe";
-            nameInputEl.onchange = (e) => this.nameInput = (e.target as HTMLInputElement).value;
-
-            const ingGroup = formContainer.createDiv("pantry-form-row");
-            ingGroup.createEl("label", { text: "Ingredients & Notes", cls: "pantry-form-label" });
-            const ingInputEl = ingGroup.createEl("textarea", { cls: "pantry-form-input" });
-            ingInputEl.value = this.ingredientsInput;
-            ingInputEl.placeholder = "Paste ingredients here... Include any substitutions you plan to make.";
-            ingInputEl.onchange = (e) => this.ingredientsInput = (e.target as HTMLTextAreaElement).value;
-        }
+        this.fileInputEl = group.createEl("input", { type: "file", cls: "pantry-form-input" });
+        this.fileInputEl.accept = "image/png, image/jpeg, image/jpg";
+        this.fileInputEl.onchange = (e) => {
+            const files = (e.target as HTMLInputElement).files;
+            if (files && files.length > 0) {
+                this.selectedFile = files[0];
+            }
+        };
 
         const actions = formContainer.createDiv("pantry-actions");
-        const submitBtn = actions.createEl("button", { text: "Add", cls: "pantry-btn pantry-btn-primary" });
+        const submitBtn = actions.createEl("button", { text: "Parse Image", cls: "pantry-btn pantry-btn-primary" });
         submitBtn.onclick = () => this.handleParse();
+
+        const cancelBtn = actions.createEl("button", { text: "Cancel", cls: "pantry-btn pantry-btn-secondary" });
+        cancelBtn.onclick = () => this.close();
     }
 
     private renderProcessing(container: HTMLElement) {
         const loadContainer = container.createDiv("pantry-loading");
-        loadContainer.createEl("p", { text: "Parsing the recipe, this might take a moment…" });
+        loadContainer.createEl("p", { text: "Parsing the recipe image, this might take a moment…" });
     }
 
     private renderPreview(container: HTMLElement) {
@@ -95,6 +81,7 @@ export class RecipeInputModal extends Modal {
         const header = container.createDiv("pantry-modal-header");
         backBtn.onclick = () => {
             this.parsedData = null;
+            this.selectedFile = null;
             this.display();
         };
 
@@ -112,18 +99,27 @@ export class RecipeInputModal extends Modal {
         const retryBtn = actions.createEl("button", { text: "Discard & Try Again", cls: "pantry-btn pantry-btn-secondary" });
         retryBtn.onclick = () => {
             this.parsedData = null;
+            this.selectedFile = null;
             this.display();
         };
     }
 
-    private async handleParse() {
-        if (this.mode === "url" && !this.urlInput.trim()) {
-            new Notice("Please enter a URL");
-            return;
-        }
+    private async fileToBase64(file: File): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const result = reader.result as string;
+                const base64 = result.split(",")[1];
+                resolve(base64);
+            };
+            reader.onerror = (error) => reject(error);
+        });
+    }
 
-        if (this.mode === "manual" && !this.ingredientsInput.trim()) {
-            new Notice("Please enter ingredients");
+    private async handleParse() {
+        if (!this.selectedFile) {
+            new Notice("Please select an image file first");
             return;
         }
 
@@ -131,17 +127,10 @@ export class RecipeInputModal extends Modal {
         this.display();
 
         try {
-            if (this.mode === "url") {
-                this.parsedData = await this.llmService.parseRecipeFromURL(this.urlInput);
-                // Ensure the source URL is strictly what the user inputted
-                if (this.parsedData) {
-                    this.parsedData.source_url = this.urlInput;
-                }
-            } else {
-                this.parsedData = await this.llmService.parseRecipeFromText(this.ingredientsInput, this.nameInput);
-            }
+            const base64 = await this.fileToBase64(this.selectedFile);
+            this.parsedData = await this.llmService.parseRecipeFromImage(base64);
         } catch (error: any) {
-            new ErrorModal(this.app, `Failed to parse recipe: ${error.message}`, () => {
+            new ErrorModal(this.app, `Failed to parse image: ${error.message}`, () => {
                 this.display();
             }).open();
         } finally {

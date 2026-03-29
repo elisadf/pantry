@@ -1,0 +1,27 @@
+
+In this repository you will fine a project that 
+
+ * obisdian plugin written in js/ts 
+ * the plugin extracts recipes from different websites 
+ * it translates those recipes into obisdian markdown files 
+
+
+MPORTANT - DO NOT COMMIT CHANGES UNLESS ASKED TO 
+
+
+ * use the ./references folder for new git repositories  
+ * you have the obsidian cli to help with debugging errors 
+
+## Issue tracking 
+
+When you are in PLAN  and you have a finsihed and refined a plan i want you store the plan in an issue  along with the todo list 
+
+The file convention is the following . .EPICS/<000N>-<epic title>/ISSUES/000N-[title of issue].md  and the issue numbers increment by 1 
+
+
+***IMPORTANT*** - IN PLAN MODE ALWAYS ASK USER WHAT EPIC YOU ARE WORKING ON 
+
+
+TESTS
+
+ When you are testing copy the tests to ISSUES/ the issues number / test/ test data and test commaands  

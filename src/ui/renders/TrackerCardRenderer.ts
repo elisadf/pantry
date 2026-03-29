@@ -1,5 +1,5 @@
-import { PantryPluginSettings } from '../settings';
-import { MacroAggregate } from './TrackerProcessor';
+import { PantryPluginSettings } from '../../settings';
+import { MacroAggregate } from '../../services/TrackerProcessor';
 
 type MacroType = 'calories' | 'protein' | 'fat' | 'carbs' | 'fibre';
 

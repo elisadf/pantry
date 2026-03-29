@@ -1,7 +1,7 @@
-import { PantryPluginSettings } from '../settings';
-import { DailyAggregate, MacroAggregate, WeeklyData } from './TrackerProcessor';
-import { calculateRollingAverage } from '../calculators/rollingAverage';
-import { calculateMacroRatios } from '../calculators/macroRatios';
+import { PantryPluginSettings } from '../../settings';
+import { DailyAggregate, MacroAggregate, WeeklyData } from '../../services/TrackerProcessor';
+import { calculateRollingAverage } from '../../calculators/rollingAverage';
+import { calculateMacroRatios } from '../../calculators/macroRatios';
 
 type MacroType = 'calories' | 'protein' | 'fat' | 'carbs' | 'fibre';
 

@@ -1,5 +1,5 @@
 import { App, Modal, Setting, Notice } from "obsidian";
-import { FoodItemFrontmatter } from "../services/RecipeFileManager";
+import { FoodItemFrontmatter } from "../../services/RecipeFileManager";
 
 export interface RecipeSearchResult {
     path: string;

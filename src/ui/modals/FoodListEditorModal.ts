@@ -1,6 +1,6 @@
 import { App, Modal, Notice, setIcon } from 'obsidian';
-import { RecipeFileManager, FoodItemFrontmatter } from '../services/RecipeFileManager';
-import { PantryPluginSettings } from '../settings';
+import { RecipeFileManager, FoodItemFrontmatter } from '../../services/RecipeFileManager';
+import { PantryPluginSettings } from '../../settings';
 import { EditWeeklyServingModal } from './EditWeeklyServingModal';
 
 export interface PlannedFoodItem {
@@ -249,8 +249,9 @@ export class FoodListEditorModal extends Modal {
                         item.name,
                         recipe.frontmatter,
                         item.servings,
+                        [], // Categories
                         this.settings,
-                        (newServings) => {
+                        (newServings, newCategory) => {
                             if (newServings <= 0) {
                                 this.currentFoods.splice(i, 1);
                             } else {

@@ -1,4 +1,4 @@
-import { FoodItemFrontmatter } from "./RecipeFileManager";
+import { FoodItemFrontmatter } from "../RecipeFileManager";
 import * as crypto from "crypto";
 
 export interface FatSecretFoodSearchItem {
