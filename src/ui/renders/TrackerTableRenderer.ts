@@ -8,7 +8,7 @@ export interface RecipeDetail {
     notFound: boolean;
     servingSize?: number;
     originalServingSize?: number;
-    meal?: string;
+    category?: string;
 }
 
 export class TrackerTableRenderer {
@@ -37,68 +37,68 @@ export class TrackerTableRenderer {
     private renderBody(table: HTMLElement, recipeDetails: RecipeDetail[], aggregate: MacroAggregate, settings: PantryPluginSettings, onEditServingSize?: (detail: RecipeDetail) => void, onRemoveRecipe?: (detail: RecipeDetail) => void): void {
         const tbody = table.createEl('tbody', { cls: 'tracker-table__body' });
 
-        // Group recipes by meal
-        const mealGroups: Record<string, RecipeDetail[]> = {};
-        const mealOrder: string[] = [];
+        // Group recipes by category
+        const categoryGroups: Record<string, RecipeDetail[]> = {};
+        const categoryOrder: string[] = [];
         
         for (const detail of recipeDetails) {
-            const meal = detail.meal || 'Uncategorized';
-            if (!mealGroups[meal]) {
-                mealGroups[meal] = [];
-                mealOrder.push(meal);
+            const category = detail.category || 'Uncategorized';
+            if (!categoryGroups[category]) {
+                categoryGroups[category] = [];
+                categoryOrder.push(category);
             }
-            mealGroups[meal].push(detail);
+            categoryGroups[category].push(detail);
         }
 
         // Individual Recipe Rows
-        for (const meal of mealOrder) {
-            const groupDetails = mealGroups[meal];
+        for (const category of categoryOrder) {
+            const groupDetails = categoryGroups[category];
 
             // Render Meal Header
-            if (meal !== 'Uncategorized' || mealOrder.length > 1) {
-                // Calculate meal totals
-                const mealTotals: MacroAggregate = { calories: 0, protein: 0, fat: 0, carbs: 0, fibre: 0 };
+            if (category !== 'Uncategorized' || categoryOrder.length > 1) {
+                // Calculate category totals
+                const categoryTotals: MacroAggregate = { calories: 0, protein: 0, fat: 0, carbs: 0, fibre: 0 };
                 for (const detail of groupDetails) {
                     if (detail.macros) {
-                        mealTotals.calories += detail.macros.calories;
-                        mealTotals.protein += detail.macros.protein;
-                        mealTotals.fat += detail.macros.fat;
-                        mealTotals.carbs += detail.macros.carbs;
-                        mealTotals.fibre += detail.macros.fibre;
+                        categoryTotals.calories += detail.macros.calories;
+                        categoryTotals.protein += detail.macros.protein;
+                        categoryTotals.fat += detail.macros.fat;
+                        categoryTotals.carbs += detail.macros.carbs;
+                        categoryTotals.fibre += detail.macros.fibre;
                     }
                 }
 
-                const headerRow = tbody.createEl('tr', { cls: 'tracker-table__row tracker-table__meal-header' });
+                const headerRow = tbody.createEl('tr', { cls: 'tracker-table__row tracker-table__category-header' });
                 const nameCell = headerRow.createEl('td', { 
-                    cls: 'tracker-table__cell tracker-table__meal-header-cell',
+                    cls: 'tracker-table__cell tracker-table__category-header-cell',
                 });
                 
-                const toggleIcon = nameCell.createSpan({ cls: 'tracker-table__meal-toggle', text: '▼' });
-                nameCell.createSpan({ cls: 'tracker-table__meal-name', text: meal });
+                const toggleIcon = nameCell.createSpan({ cls: 'tracker-table__category-toggle', text: '▼' });
+                nameCell.createSpan({ cls: 'tracker-table__category-name', text: category });
 
                 const renderMealMacro = (val: number, unit: string, type: string) => {
-                    const cell = headerRow.createEl('td', { cls: `tracker-table__cell tracker-table__meal-header-cell tracker-table__meal-macro-total tracker-table__cell--numeric tracker-table__cell--${type}` });
+                    const cell = headerRow.createEl('td', { cls: `tracker-table__cell tracker-table__category-header-cell tracker-table__category-macro-total tracker-table__cell--numeric tracker-table__cell--${type}` });
                     const wrapper = cell.createDiv({ cls: 'tracker-table__value-wrapper' });
                     wrapper.createSpan({ cls: 'tracker-table__value', text: this.formatNumber(val) });
                     wrapper.createSpan({ cls: 'tracker-table__unit', text: ` ${unit}` });
                 };
 
-                renderMealMacro(mealTotals.calories, settings.energyUnit, 'calories');
-                renderMealMacro(mealTotals.protein, 'g', 'protein');
-                renderMealMacro(mealTotals.fat, 'g', 'fat');
-                renderMealMacro(mealTotals.carbs, 'g', 'carbs');
-                renderMealMacro(mealTotals.fibre, 'g', 'fibre');
+                renderMealMacro(categoryTotals.calories, settings.energyUnit, 'calories');
+                renderMealMacro(categoryTotals.protein, 'g', 'protein');
+                renderMealMacro(categoryTotals.fat, 'g', 'fat');
+                renderMealMacro(categoryTotals.carbs, 'g', 'carbs');
+                renderMealMacro(categoryTotals.fibre, 'g', 'fibre');
                 
                 // Empty cell for the actions column
-                headerRow.createEl('td', { cls: 'tracker-table__cell tracker-table__meal-header-cell tracker-table__cell--actions' });
+                headerRow.createEl('td', { cls: 'tracker-table__cell tracker-table__category-header-cell tracker-table__cell--actions' });
 
                 // Add toggle logic
                 headerRow.onclick = () => {
                     const isCollapsed = headerRow.classList.toggle('collapsed');
                     toggleIcon.innerText = isCollapsed ? '▶' : '▼';
-                    // We need to escape the meal name to use it in querySelector, or just use the generated rows directly.
+                    // We need to escape the category name to use it in querySelector, or just use the generated rows directly.
                     // Better to use a safe class name or directly map them.
-                    const rows = tbody.querySelectorAll(`.tracker-table__row[data-meal="${CSS.escape(meal)}"]`);
+                    const rows = tbody.querySelectorAll(`.tracker-table__row[data-category="${CSS.escape(category)}"]`);
                     rows.forEach(r => {
                         (r as HTMLElement).style.display = isCollapsed ? 'none' : '';
                     });
@@ -108,7 +108,7 @@ export class TrackerTableRenderer {
             for (const detail of groupDetails) {
                 const row = tbody.createEl('tr', { 
                     cls: 'tracker-table__row',
-                    attr: { 'data-meal': meal }
+                    attr: { 'data-category': category }
                 });
                 
                 // Recipe Name Cell

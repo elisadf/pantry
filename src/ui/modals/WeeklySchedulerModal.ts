@@ -56,9 +56,8 @@ export class WeeklySchedulerModal extends Modal {
             editBtn.onclick = () => {
                 new EditWeeklyServingModal(
                     this.app,
-                    schedule.name,
+                    { name: schedule.name, servings: schedule.servings, category: schedule.frontmatter.category },
                     schedule.frontmatter,
-                    schedule.servings,
                     [], // Categories
                     this.settings,
                     (newServings, newCategory) => {

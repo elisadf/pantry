@@ -4,6 +4,7 @@ import { WeeklyNoteManager } from "../../services/WeeklyNoteManager";
 import { calculateWeeklyBalance, generateWeeklySummaryCodeblock } from "../../calculators/weeklyBalance";
 import { PantryPluginSettings } from "../../settings";
 import { WeeklySchedulerModal } from "./WeeklySchedulerModal";
+import { CategoryItemServings } from "../../data/CategoriesData";
 
 export class WeeklyPlannerV2Modal extends Modal {
     private recipeManager: RecipeFileManager;
@@ -270,7 +271,7 @@ export class WeeklyPlannerV2Modal extends Modal {
             try {
                 const path = await this.noteManager.createWeeklyNoteV2(
                     this.weekString,
-                    schedules.map(s => ({ name: s.name, path: s.path, servings: s.servings })),
+                    schedules.map(s => ({ name: s.name, path: s.path, servings: s.servings })) as (CategoryItemServings & { path: string })[],
                     '',
                     generateWeeklySummaryCodeblock(stats, this.settings.energyUnit)
                 );
