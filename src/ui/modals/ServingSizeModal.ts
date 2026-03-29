@@ -6,10 +6,13 @@ export class ServingSizeModal extends Modal {
     private currentServingSize: number;
     private originalServingSize: number;
     private originalMacros: MacroAggregate;
-    private onConfirm: (newServingSize: number) => void;
+    private currentCategory: string;
+    private categories: string[];
+    private onConfirm: (newServingSize: number, newCategory: string) => void;
     
     private currentMacrosPreview: MacroAggregate;
     private newServingSize: number;
+    private newCategory: string;
     private previewContainer: HTMLElement;
 
     constructor(
@@ -18,7 +21,9 @@ export class ServingSizeModal extends Modal {
         currentServingSize: number,
         originalServingSize: number,
         currentMacros: MacroAggregate,
-        onConfirm: (newServingSize: number) => void
+        currentCategory: string,
+        categories: string[],
+        onConfirm: (newServingSize: number, newCategory: string) => void
     ) {
         super(app);
         this.recipeName = recipeName;
@@ -35,6 +40,9 @@ export class ServingSizeModal extends Modal {
         };
         this.currentMacrosPreview = { ...currentMacros };
         this.newServingSize = currentServingSize;
+        this.currentCategory = currentCategory;
+        this.categories = categories;
+        this.newCategory = currentCategory;
         this.onConfirm = onConfirm;
     }
 
@@ -51,6 +59,18 @@ export class ServingSizeModal extends Modal {
                 cls: "serving-size-modal-info" 
             });
         }
+
+        new Setting(contentEl)
+            .setName("Category")
+            .setDesc("The meal this food belongs to")
+            .addDropdown(dropdown => {
+                const options = ["Uncategorized", ...this.categories];
+                options.forEach(opt => dropdown.addOption(opt, opt));
+                dropdown.setValue(this.newCategory);
+                dropdown.onChange(value => {
+                    this.newCategory = value;
+                });
+            });
 
         new Setting(contentEl)
             .setName("Serving Size (g)")
@@ -73,7 +93,7 @@ export class ServingSizeModal extends Modal {
         
         const saveButton = buttonContainer.createEl("button", { text: "Save", cls: "mod-cta" });
         saveButton.onclick = () => {
-            this.onConfirm(this.newServingSize);
+            this.onConfirm(this.newServingSize, this.newCategory);
             this.close();
         };
 
