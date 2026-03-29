@@ -1,5 +1,6 @@
 import { App, MarkdownView, Notice, TFile, parseYaml } from "obsidian";
 import { RecipeFileManager, FoodItemFrontmatter } from "./RecipeFileManager";
+import { MarkdownSettingsService } from "./MarkdownSettingsService";
 import { PantryPluginSettings } from "../settings";
 import { TrackerCardRenderer } from "../ui/renders/TrackerCardRenderer";
 import { TrackerTableRenderer, RecipeDetail } from "../ui/renders/TrackerTableRenderer";
@@ -42,15 +43,17 @@ export interface WeeklyData {
 export class TrackerProcessor {
     private app: App;
     private recipeManager: RecipeFileManager;
+    private markdownSettingsService: MarkdownSettingsService;
     private settings: PantryPluginSettings;
     private cardRenderer: TrackerCardRenderer;
     private tableRenderer: TrackerTableRenderer;
     private weeklyRenderer: WeeklyTrackerRenderer;
 
-    constructor(app: App, recipeManager: RecipeFileManager, settings: PantryPluginSettings) {
+    constructor(app: App, recipeManager: RecipeFileManager, settings: PantryPluginSettings, markdownSettingsService: MarkdownSettingsService) {
         this.app = app;
         this.recipeManager = recipeManager;
         this.settings = settings;
+        this.markdownSettingsService = markdownSettingsService;
         this.cardRenderer = new TrackerCardRenderer();
         this.tableRenderer = new TrackerTableRenderer();
         this.weeklyRenderer = new WeeklyTrackerRenderer();
@@ -430,7 +433,7 @@ export class TrackerProcessor {
         new Notice(`Added ${selectedNames.length} recipe(s) to tracker.`);
     }
 
-    async handleServingSizeUpdate(oldEntryName: string, newUnits: number, source: string, el: HTMLElement, ctx: any) {
+    async handleServingSizeUpdate(oldEntryName: string, newUnits: number, newCategory: string, source: string, el: HTMLElement, ctx: any) {
         if (!ctx || !ctx.sourcePath) return;
         const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
         if (!(file instanceof TFile)) return;
@@ -442,6 +445,7 @@ export class TrackerProcessor {
         for (const entry of data.entries) {
             if (entry.name === oldEntryName) {
                 entry.units = newUnits;
+                entry.category = newCategory;
                 found = true;
                 break;
             }
@@ -450,7 +454,7 @@ export class TrackerProcessor {
         if (found) {
             const newYaml = this.serializeToYaml(data).trimEnd();
             await this.updateBlockContent(file, el, ctx, source, newYaml);
-            new Notice(`Updated serving size for ${oldEntryName}.`);
+            new Notice(`Updated serving size and category for ${oldEntryName}.`);
         } else {
             new Notice("Could not find the entry in the block to update.");
         }
@@ -569,7 +573,8 @@ export class TrackerProcessor {
                 // Render Cards at top
                 this.cardRenderer.renderWidget(container, data.date, aggregate, this.settings, async () => {
                     const allRecipes = await this.recipeManager.getAllRecipes();
-                    const categories = await this.recipeManager.getRecipeCategories();
+                    const settingsData = await this.markdownSettingsService.loadSettings();
+                    const categories = settingsData?.categories || [];
                     new RecipeSearchModal(
                         this.app,
                         allRecipes,
@@ -579,6 +584,9 @@ export class TrackerProcessor {
                         }
                     ).open();
                 });
+                
+                const settingsData = await this.markdownSettingsService.loadSettings();
+                const categories = settingsData?.categories || [];
                 
                 // Render Table underneath
                 this.tableRenderer.renderTable(
@@ -596,8 +604,10 @@ export class TrackerProcessor {
                                 currentServingSize,
                                 originalServingSize,
                                 detail.macros,
-                                async (newServingSize) => {
-                                    await this.handleServingSizeUpdate(detail.name, newServingSize, source, el, ctx);
+                                detail.category || "Uncategorized",
+                                categories,
+                                async (newServingSize, newCategory) => {
+                                    await this.handleServingSizeUpdate(detail.name, newServingSize, newCategory, source, el, ctx);
                                 }
                             ).open();
                         }

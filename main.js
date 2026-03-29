@@ -3118,7 +3118,7 @@ var RecipeSearchModal = class extends import_obsidian15.Modal {
     mealSelectionContainer.createEl("label", { text: "Select a meal", attr: { style: "font-weight: 500; font-size: 0.9em; color: var(--text-normal);" } });
     const mealSelectWrapper = mealSelectionContainer.createDiv({ cls: "pantry-select-wrapper", attr: { style: "position: relative; width: 100%;" } });
     const mealSelect = mealSelectWrapper.createEl("select", { cls: "pantry-form-input pantry-meal-select" });
-    const mealOptions = ["- Select -", "Breakfast", "Lunch", "Dinner", "Snack", "Post-Workout Snack", "Uncategorized"];
+    const mealOptions = ["- Select -", ...this.categories, "Uncategorized"];
     mealOptions.forEach((meal) => {
       const val = meal === "- Select -" ? "Uncategorized" : meal;
       mealSelect.createEl("option", { text: meal, value: val });
@@ -3138,28 +3138,8 @@ var RecipeSearchModal = class extends import_obsidian15.Modal {
     this.confirmBtn = buttonsContainer.createEl("button", { text: "Add Selected", cls: "pantry-btn pantry-btn-primary" });
     this.confirmBtn.onclick = () => {
       if (this.selectedRecipes.size === 0) return;
-      const selectedWithServingSize = Array.from(this.selectedRecipes).map((name) => {
-        var _a, _b;
-        const recipe = this.allRecipes.find((r) => {
-          let rName = r.frontmatter.name;
-          if (!rName) {
-            const parts = r.path.split("/");
-            const filename = parts[parts.length - 1];
-            rName = filename.replace(/\.md$/i, "");
-          }
-          return rName === name;
-        });
-        const originalServingSize = ((_a = recipe == null ? void 0 : recipe.frontmatter) == null ? void 0 : _a.serving_size) || ((_b = recipe == null ? void 0 : recipe.frontmatter) == null ? void 0 : _b.default_serving_size);
-        if (originalServingSize) {
-          const match = originalServingSize.toString().match(/^(\d+(?:\.\d+)?)g?$/i);
-          if (match) {
-            const parsedSize = parseFloat(match[1]);
-            return `${name} (${parsedSize}g)`;
-          }
-        }
-        return name;
-      });
-      this.onConfirm(selectedWithServingSize, this.selectedMeal);
+      const selectedNames = Array.from(this.selectedRecipes);
+      this.onConfirm(selectedNames, this.selectedMeal);
       this.close();
     };
     this.updateConfirmButtonState();
@@ -3276,7 +3256,7 @@ var RecipeSearchModal = class extends import_obsidian15.Modal {
 // src/ui/modals/ServingSizeModal.ts
 var import_obsidian16 = require("obsidian");
 var ServingSizeModal = class extends import_obsidian16.Modal {
-  constructor(app, recipeName, currentServingSize, originalServingSize, currentMacros, onConfirm) {
+  constructor(app, recipeName, currentServingSize, originalServingSize, currentMacros, currentCategory, categories, onConfirm) {
     super(app);
     this.recipeName = recipeName;
     this.currentServingSize = currentServingSize;
@@ -3291,6 +3271,9 @@ var ServingSizeModal = class extends import_obsidian16.Modal {
     };
     this.currentMacrosPreview = { ...currentMacros };
     this.newServingSize = currentServingSize;
+    this.currentCategory = currentCategory;
+    this.categories = categories;
+    this.newCategory = currentCategory;
     this.onConfirm = onConfirm;
   }
   onOpen() {
@@ -3304,6 +3287,14 @@ var ServingSizeModal = class extends import_obsidian16.Modal {
         cls: "serving-size-modal-info"
       });
     }
+    new import_obsidian16.Setting(contentEl).setName("Category").setDesc("The meal this food belongs to").addDropdown((dropdown) => {
+      const options = ["Uncategorized", ...this.categories];
+      options.forEach((opt) => dropdown.addOption(opt, opt));
+      dropdown.setValue(this.newCategory);
+      dropdown.onChange((value) => {
+        this.newCategory = value;
+      });
+    });
     new import_obsidian16.Setting(contentEl).setName("Serving Size (g)").setDesc("Enter the amount you actually consumed").addText(
       (text) => text.setValue(this.newServingSize.toString()).onChange((value) => {
         const parsed = parseFloat(value);
@@ -3318,7 +3309,7 @@ var ServingSizeModal = class extends import_obsidian16.Modal {
     const buttonContainer = contentEl.createDiv({ cls: "serving-size-modal-buttons" });
     const saveButton = buttonContainer.createEl("button", { text: "Save", cls: "mod-cta" });
     saveButton.onclick = () => {
-      this.onConfirm(this.newServingSize);
+      this.onConfirm(this.newServingSize, this.newCategory);
       this.close();
     };
     const cancelButton = buttonContainer.createEl("button", { text: "Cancel" });
@@ -3360,10 +3351,11 @@ var ServingSizeModal = class extends import_obsidian16.Modal {
 
 // src/services/TrackerProcessor.ts
 var TrackerProcessor = class {
-  constructor(app, recipeManager, settings) {
+  constructor(app, recipeManager, settings, markdownSettingsService) {
     this.app = app;
     this.recipeManager = recipeManager;
     this.settings = settings;
+    this.markdownSettingsService = markdownSettingsService;
     this.cardRenderer = new TrackerCardRenderer();
     this.tableRenderer = new TrackerTableRenderer();
     this.weeklyRenderer = new WeeklyTrackerRenderer();
@@ -3678,7 +3670,7 @@ var TrackerProcessor = class {
     await this.updateBlockContent(file, el, ctx, source, newYaml);
     new import_obsidian17.Notice(`Added ${selectedNames.length} recipe(s) to tracker.`);
   }
-  async handleServingSizeUpdate(oldEntryName, newUnits, source, el, ctx) {
+  async handleServingSizeUpdate(oldEntryName, newUnits, newCategory, source, el, ctx) {
     if (!ctx || !ctx.sourcePath) return;
     const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
     if (!(file instanceof import_obsidian17.TFile)) return;
@@ -3688,6 +3680,7 @@ var TrackerProcessor = class {
     for (const entry of data.entries) {
       if (entry.name === oldEntryName) {
         entry.units = newUnits;
+        entry.category = newCategory;
         found = true;
         break;
       }
@@ -3695,7 +3688,7 @@ var TrackerProcessor = class {
     if (found) {
       const newYaml = this.serializeToYaml(data).trimEnd();
       await this.updateBlockContent(file, el, ctx, source, newYaml);
-      new import_obsidian17.Notice(`Updated serving size for ${oldEntryName}.`);
+      new import_obsidian17.Notice(`Updated serving size and category for ${oldEntryName}.`);
     } else {
       new import_obsidian17.Notice("Could not find the entry in the block to update.");
     }
@@ -3792,16 +3785,19 @@ var TrackerProcessor = class {
         const container = el.createDiv({ cls: "tracker-container" });
         this.cardRenderer.renderWidget(container, data.date, aggregate, this.settings, async () => {
           const allRecipes = await this.recipeManager.getAllRecipes();
-          const categories = await this.recipeManager.getRecipeCategories();
+          const settingsData2 = await this.markdownSettingsService.loadSettings();
+          const categories2 = (settingsData2 == null ? void 0 : settingsData2.categories) || [];
           new RecipeSearchModal(
             this.app,
             allRecipes,
-            categories,
+            categories2,
             async (selectedNames, selectedMeal) => {
               await this.handleAddRecipesToBlock(source, el, ctx, selectedNames, selectedMeal);
             }
           ).open();
         });
+        const settingsData = await this.markdownSettingsService.loadSettings();
+        const categories = (settingsData == null ? void 0 : settingsData.categories) || [];
         this.tableRenderer.renderTable(
           container,
           recipeDetails,
@@ -3817,8 +3813,10 @@ var TrackerProcessor = class {
                 currentServingSize,
                 originalServingSize,
                 detail.macros,
-                async (newServingSize) => {
-                  await this.handleServingSizeUpdate(detail.name, newServingSize, source, el, ctx);
+                detail.category || "Uncategorized",
+                categories,
+                async (newServingSize, newCategory) => {
+                  await this.handleServingSizeUpdate(detail.name, newServingSize, newCategory, source, el, ctx);
                 }
               ).open();
             }
@@ -3839,7 +3837,7 @@ var TrackerProcessor = class {
 
 // src/processors/tracker/index.ts
 function registerTrackerProcessor(plugin) {
-  const processor = new TrackerProcessor(plugin.app, plugin.recipeManager, plugin.settings);
+  const processor = new TrackerProcessor(plugin.app, plugin.recipeManager, plugin.settings, plugin.markdownSettingsService);
   plugin.registerMarkdownCodeBlockProcessor("tracker", async (source, el, ctx) => {
     await processor.process(source, el, ctx);
   });
@@ -6906,6 +6904,7 @@ var MarkdownSettingsService = class {
     }
   }
   async loadSettings() {
+    console.log("[MarkdownSettingsService] Reading settings from:", this.getSettingsFilePath());
     const filePath = this.getSettingsFilePath();
     const file = this.app.vault.getAbstractFileByPath(filePath);
     if (!(file instanceof import_obsidian20.TFile)) {
@@ -6941,6 +6940,7 @@ categories:
     return null;
   }
   async saveSettings(newSettingsData) {
+    console.log("[MarkdownSettingsService] Writing settings to:", this.getSettingsFilePath(), "Data:", newSettingsData);
     const filePath = this.getSettingsFilePath();
     let file = this.app.vault.getAbstractFileByPath(filePath);
     const yamlString = dump(newSettingsData);
