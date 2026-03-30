@@ -987,7 +987,7 @@ __export(main_exports, {
   default: () => PantryPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian21 = require("obsidian");
+var import_obsidian20 = require("obsidian");
 
 // src/settings.ts
 var import_obsidian = require("obsidian");
@@ -1906,6 +1906,9 @@ var WeeklyNoteManager = class {
       const basename = ((_a = r.path.split("/").pop()) == null ? void 0 : _a.replace(".md", "")) || r.name;
       lines.push(`  - name: ${basename}`);
       lines.push(`    servings: ${r.servings || 1}`);
+      if (r.category) {
+        lines.push(`    category: ${r.category}`);
+      }
     });
     lines.push("```");
     await this.app.vault.create(filePath, lines.join("\n"));
@@ -1918,7 +1921,7 @@ init_RecipeInputModal();
 init_RecipeImageModal();
 
 // src/ui/modals/WeeklyPlannerV2Modal.ts
-var import_obsidian13 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 
 // src/calculators/weeklyBalance.ts
 function calculateWeeklyBalance(recipes, dailyCalorieTarget, dailyProteinTarget, dailyFatTarget, dailyCarbsTarget, dailyFibreTarget) {
@@ -2002,9 +2005,6 @@ function generateWeeklySummaryCodeblock(stats, energyUnit) {
     "```"
   ].join("\n");
 }
-
-// src/ui/modals/WeeklySchedulerModal.ts
-var import_obsidian12 = require("obsidian");
 
 // src/ui/modals/EditWeeklyServingModal.ts
 var import_obsidian11 = require("obsidian");
@@ -2143,69 +2143,12 @@ var EditWeeklyServingModal = class extends import_obsidian11.Modal {
   }
 };
 
-// src/ui/modals/WeeklySchedulerModal.ts
-var WeeklySchedulerModal = class extends import_obsidian12.Modal {
-  constructor(app, recipes, settings, onConfirm) {
-    super(app);
-    this.schedules = recipes.map((r) => ({ ...r, servings: 1 }));
-    this.settings = settings;
-    this.onConfirm = onConfirm;
-  }
-  onOpen() {
-    this.display();
-  }
-  display() {
-    const { contentEl } = this;
-    contentEl.empty();
-    contentEl.addClass("nutrition-planner-modal");
-    contentEl.createEl("h2", { text: "How many times this week?" });
-    contentEl.createEl("p", {
-      text: "All recipes default to once. Adjust any you'll eat more often.",
-      attr: { style: "color:var(--text-muted); font-size:13px; margin-bottom:20px;" }
-    });
-    this.schedules.forEach((schedule) => {
-      const row = contentEl.createDiv({ cls: "scheduler-row" });
-      row.createEl("span", { text: schedule.name, cls: "scheduler-recipe-name" });
-      const counter = row.createDiv({ cls: "scheduler-counter" });
-      counter.createEl("span", { text: `\xD7${schedule.servings}`, cls: "scheduler-counter-value" });
-      const editBtn = counter.createSpan({ cls: "tracker-table__edit-icon" });
-      editBtn.style.cursor = "pointer";
-      editBtn.style.marginLeft = "8px";
-      (0, import_obsidian12.setIcon)(editBtn, "pencil");
-      editBtn.onclick = () => {
-        new EditWeeklyServingModal(
-          this.app,
-          { name: schedule.name, servings: schedule.servings, category: schedule.frontmatter.category },
-          schedule.frontmatter,
-          [],
-          // Categories
-          this.settings,
-          (newServings, newCategory) => {
-            schedule.servings = newServings;
-            this.display();
-          }
-        ).open();
-      };
-    });
-    const footer = contentEl.createDiv({ cls: "pantry-actions" });
-    footer.style.marginTop = "20px";
-    footer.createEl("button", { text: "Back", cls: "pantry-btn pantry-btn-secondary" }).onclick = () => this.close();
-    footer.createEl("button", { text: "Create Weekly Note", cls: "pantry-btn pantry-btn-primary" }).onclick = () => {
-      this.onConfirm(this.schedules);
-      this.close();
-    };
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-
 // src/ui/modals/WeeklyPlannerV2Modal.ts
-var WeeklyPlannerV2Modal = class extends import_obsidian13.Modal {
+var WeeklyPlannerV2Modal = class extends import_obsidian12.Modal {
   constructor(app, recipeManager, noteManager, settings) {
     super(app);
     this.allRecipes = [];
-    this.selectedRecipes = /* @__PURE__ */ new Set();
+    this.selectedRecipes = /* @__PURE__ */ new Map();
     this.categories = [];
     this.weekOffset = 1;
     // default next week — user plans Saturday for following week
@@ -2234,7 +2177,7 @@ var WeeklyPlannerV2Modal = class extends import_obsidian13.Modal {
       this.allRecipes = await this.recipeManager.getAllRecipes();
       this.categories = await this.recipeManager.getRecipeCategories();
     } catch (e) {
-      new import_obsidian13.Notice("Failed to load recipes");
+      new import_obsidian12.Notice("Failed to load recipes");
     } finally {
       this.isLoading = false;
       this.display();
@@ -2319,7 +2262,7 @@ var WeeklyPlannerV2Modal = class extends import_obsidian13.Modal {
     this.summaryContainer = summaryArea.createDiv("balance-summary");
     this.updateSummary();
     const buttonGroup = contentEl.createDiv("button-group");
-    const createBtn = buttonGroup.createEl("button", { text: "Create Weekly Note V2", cls: "primary" });
+    const createBtn = buttonGroup.createEl("button", { text: "Create Weekly Plan", cls: "primary" });
     createBtn.onclick = () => this.handleCreate();
     const cancelBtn = buttonGroup.createEl("button", { text: "Cancel", cls: "secondary" });
     cancelBtn.onclick = () => this.close();
@@ -2327,7 +2270,7 @@ var WeeklyPlannerV2Modal = class extends import_obsidian13.Modal {
   updateSummary() {
     if (!this.summaryContainer) return;
     this.summaryContainer.empty();
-    const selectedDocs = this.allRecipes.filter((r) => this.selectedRecipes.has(r.path)).map((r) => ({ frontmatter: r.frontmatter, servings: 1 }));
+    const selectedDocs = this.allRecipes.filter((r) => this.selectedRecipes.has(r.path)).map((r) => ({ frontmatter: r.frontmatter, servings: this.selectedRecipes.get(r.path).servings }));
     const stats = calculateWeeklyBalance(
       selectedDocs,
       this.settings.dailyCalorieTarget,
@@ -2381,7 +2324,7 @@ var WeeklyPlannerV2Modal = class extends import_obsidian13.Modal {
           }
           const pill = wrap.createEl("button", { text: name, cls: "suggestion-pill" });
           pill.onclick = () => {
-            this.selectedRecipes.add(r.path);
+            this.selectedRecipes.set(r.path, { servings: 1, category: r.frontmatter.category || "Uncategorized" });
             this.display();
           };
         });
@@ -2390,7 +2333,7 @@ var WeeklyPlannerV2Modal = class extends import_obsidian13.Modal {
   }
   async handleCreate() {
     if (this.selectedRecipes.size === 0) {
-      new import_obsidian13.Notice("Please select at least one recipe.");
+      new import_obsidian12.Notice("Please select at least one recipe.");
       return;
     }
     const selectedDocs = this.allRecipes.filter((r) => this.selectedRecipes.has(r.path));
@@ -2400,30 +2343,35 @@ var WeeklyPlannerV2Modal = class extends import_obsidian13.Modal {
         const parts = r.path.split("/");
         name = parts[parts.length - 1].replace(/\.md$/i, "");
       }
-      return { path: r.path, name, frontmatter: r.frontmatter };
+      const selectionData = this.selectedRecipes.get(r.path);
+      return {
+        path: r.path,
+        name,
+        frontmatter: r.frontmatter,
+        servings: selectionData.servings,
+        category: selectionData.category
+      };
     });
-    new WeeklySchedulerModal(this.app, recipesForScheduler, this.settings, async (schedules) => {
-      const stats = calculateWeeklyBalance(
-        schedules.map((s) => ({ frontmatter: s.frontmatter, servings: s.servings })),
-        this.settings.dailyCalorieTarget,
-        this.settings.dailyProteinTarget,
-        this.settings.dailyFatTarget,
-        this.settings.dailyCarbsTarget,
-        this.settings.fibreTargetPerDay
+    const stats = calculateWeeklyBalance(
+      recipesForScheduler.map((s) => ({ frontmatter: s.frontmatter, servings: s.servings })),
+      this.settings.dailyCalorieTarget,
+      this.settings.dailyProteinTarget,
+      this.settings.dailyFatTarget,
+      this.settings.dailyCarbsTarget,
+      this.settings.fibreTargetPerDay
+    );
+    try {
+      const path = await this.noteManager.createWeeklyNoteV2(
+        this.weekString,
+        recipesForScheduler,
+        "",
+        generateWeeklySummaryCodeblock(stats, this.settings.energyUnit)
       );
-      try {
-        const path = await this.noteManager.createWeeklyNoteV2(
-          this.weekString,
-          schedules.map((s) => ({ name: s.name, path: s.path, servings: s.servings })),
-          "",
-          generateWeeklySummaryCodeblock(stats, this.settings.energyUnit)
-        );
-        new import_obsidian13.Notice(`Created weekly plan v2: ${path}`);
-        this.close();
-      } catch (error) {
-        new import_obsidian13.Notice(`Error creating note: ${error.message}`);
-      }
-    }).open();
+      new import_obsidian12.Notice(`Created weekly plan: ${path}`);
+      this.close();
+    } catch (error) {
+      new import_obsidian12.Notice(`Error creating note: ${error.message}`);
+    }
   }
   onClose() {
     this.contentEl.empty();
@@ -2466,7 +2414,11 @@ var WeeklyPlannerV2Modal = class extends import_obsidian13.Modal {
       cb.checked = isSelected;
       cb.onclick = (e) => e.stopPropagation();
       cb.onchange = (e) => {
-        e.target.checked ? this.selectedRecipes.add(recipe.path) : this.selectedRecipes.delete(recipe.path);
+        if (e.target.checked) {
+          this.selectedRecipes.set(recipe.path, { servings: 1, category });
+        } else {
+          this.selectedRecipes.delete(recipe.path);
+        }
         this.updateSummary();
       };
       const info = item.createDiv({ attr: { style: "flex:1;" } });
@@ -2475,11 +2427,48 @@ var WeeklyPlannerV2Modal = class extends import_obsidian13.Modal {
         text: `${category} \xB7 ~${Math.round(calories)} ${this.settings.energyUnit}`,
         attr: { style: "font-size:12px; color:var(--text-muted);" }
       });
+      if (isSelected) {
+        const selectionData = this.selectedRecipes.get(recipe.path);
+        const editContainer = item.createDiv({ attr: { style: "display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted); margin-right:8px;" } });
+        editContainer.createSpan({ text: `\xD7${selectionData.servings} (${selectionData.category})` });
+        const editBtn = editContainer.createSpan({ cls: "tracker-table__edit-icon" });
+        editBtn.style.cursor = "pointer";
+        (0, import_obsidian12.setIcon)(editBtn, "pencil");
+        editBtn.onclick = (e) => {
+          e.stopPropagation();
+          const weeklyItem = {
+            name,
+            servings: selectionData.servings,
+            category: selectionData.category
+          };
+          new EditWeeklyServingModal(
+            this.app,
+            weeklyItem,
+            recipe.frontmatter,
+            this.categories,
+            this.settings,
+            (newServings, newCategory) => {
+              if (newServings === 0) {
+                this.selectedRecipes.delete(recipe.path);
+              } else {
+                this.selectedRecipes.set(recipe.path, { servings: newServings, category: newCategory });
+              }
+              this.updateSummary();
+              this.display();
+            }
+          ).open();
+        };
+      }
       item.onclick = () => {
-        this.selectedRecipes.has(recipe.path) ? this.selectedRecipes.delete(recipe.path) : this.selectedRecipes.add(recipe.path);
+        if (this.selectedRecipes.has(recipe.path)) {
+          this.selectedRecipes.delete(recipe.path);
+        } else {
+          this.selectedRecipes.set(recipe.path, { servings: 1, category });
+        }
         cb.checked = this.selectedRecipes.has(recipe.path);
         item.classList.toggle("is-selected", this.selectedRecipes.has(recipe.path));
         this.updateSummary();
+        this.display();
       };
     });
   }
@@ -2490,7 +2479,7 @@ init_FatSecretSearchModal();
 init_AddMenuModal();
 
 // src/services/TrackerProcessor.ts
-var import_obsidian17 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 
 // src/ui/renders/TrackerCardRenderer.ts
 var TrackerCardRenderer = class {
@@ -2593,7 +2582,7 @@ var TrackerCardRenderer = class {
 };
 
 // src/ui/renders/TrackerTableRenderer.ts
-var import_obsidian14 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 var TrackerTableRenderer = class {
   renderTable(container, recipeDetails, aggregate, settings, onEditServingSize, onRemoveRecipe) {
     const tableWrapper = container.createDiv({ cls: "tracker-table-wrapper" });
@@ -2677,7 +2666,7 @@ var TrackerTableRenderer = class {
           servingSizeSpan.createSpan({ text: ` (${displaySize}g)` });
           if (onEditServingSize) {
             const editIcon = servingSizeSpan.createSpan({ cls: "tracker-table__edit-icon" });
-            (0, import_obsidian14.setIcon)(editIcon, "pencil");
+            (0, import_obsidian13.setIcon)(editIcon, "pencil");
             editIcon.onclick = () => onEditServingSize(detail);
           }
         }
@@ -2696,7 +2685,7 @@ var TrackerTableRenderer = class {
           const actionsCell = row.createEl("td", { cls: "tracker-table__cell tracker-table__cell--actions" });
           if (onRemoveRecipe) {
             const removeIcon = actionsCell.createSpan({ cls: "tracker-table__remove-icon" });
-            (0, import_obsidian14.setIcon)(removeIcon, "minus-circle");
+            (0, import_obsidian13.setIcon)(removeIcon, "minus-circle");
             removeIcon.style.cursor = "pointer";
             removeIcon.onclick = () => onRemoveRecipe(detail);
           }
@@ -3055,8 +3044,8 @@ var WeeklyTrackerRenderer = class {
 };
 
 // src/ui/modals/RecipeSearchModal.ts
-var import_obsidian15 = require("obsidian");
-var RecipeSearchModal = class extends import_obsidian15.Modal {
+var import_obsidian14 = require("obsidian");
+var RecipeSearchModal = class extends import_obsidian14.Modal {
   constructor(app, allRecipes, categories, onConfirm) {
     super(app);
     this.searchInput = "";
@@ -3274,8 +3263,8 @@ var RecipeSearchModal = class extends import_obsidian15.Modal {
 };
 
 // src/ui/modals/ServingSizeModal.ts
-var import_obsidian16 = require("obsidian");
-var ServingSizeModal = class extends import_obsidian16.Modal {
+var import_obsidian15 = require("obsidian");
+var ServingSizeModal = class extends import_obsidian15.Modal {
   constructor(app, recipeName, currentServingSize, originalServingSize, currentMacros, onConfirm) {
     super(app);
     this.recipeName = recipeName;
@@ -3304,7 +3293,7 @@ var ServingSizeModal = class extends import_obsidian16.Modal {
         cls: "serving-size-modal-info"
       });
     }
-    new import_obsidian16.Setting(contentEl).setName("Serving Size (g)").setDesc("Enter the amount you actually consumed").addText(
+    new import_obsidian15.Setting(contentEl).setName("Serving Size (g)").setDesc("Enter the amount you actually consumed").addText(
       (text) => text.setValue(this.newServingSize.toString()).onChange((value) => {
         const parsed = parseFloat(value);
         if (!isNaN(parsed) && parsed > 0) {
@@ -3605,12 +3594,12 @@ var TrackerProcessor = class {
   }
   async handleAddRecipesToBlock(source, el, ctx, selectedNames, selectedMeal) {
     if (!ctx || !ctx.sourcePath) {
-      new import_obsidian17.Notice("Could not determine current file. Please try again.");
+      new import_obsidian16.Notice("Could not determine current file. Please try again.");
       return;
     }
     const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-    if (!(file instanceof import_obsidian17.TFile)) {
-      new import_obsidian17.Notice("Current file not found.");
+    if (!(file instanceof import_obsidian16.TFile)) {
+      new import_obsidian16.Notice("Current file not found.");
       return;
     }
     const content = await this.app.vault.read(file);
@@ -3657,22 +3646,22 @@ var TrackerProcessor = class {
     } else {
       newContent = content.replace(source.trimEnd(), newBlockContent);
       if (newContent === content) {
-        new import_obsidian17.Notice("Could not safely update the tracker block. The file might have changed.");
+        new import_obsidian16.Notice("Could not safely update the tracker block. The file might have changed.");
         return;
       }
     }
     await this.app.vault.modify(file, newContent);
-    new import_obsidian17.Notice(`Added ${selectedNames.length} recipe(s) to tracker.`);
+    new import_obsidian16.Notice(`Added ${selectedNames.length} recipe(s) to tracker.`);
   }
   async handleServingSizeUpdate(oldEntryName, newServingSize, source, el, ctx) {
     var _a, _b;
     if (!ctx || !ctx.sourcePath) {
-      new import_obsidian17.Notice("Could not determine current file. Please try again.");
+      new import_obsidian16.Notice("Could not determine current file. Please try again.");
       return;
     }
     const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-    if (!(file instanceof import_obsidian17.TFile)) {
-      new import_obsidian17.Notice("Current file not found.");
+    if (!(file instanceof import_obsidian16.TFile)) {
+      new import_obsidian16.Notice("Current file not found.");
       return;
     }
     const content = await this.app.vault.read(file);
@@ -3697,7 +3686,7 @@ var TrackerProcessor = class {
         lines.splice(sectionInfo.lineStart, sectionInfo.lineEnd - sectionInfo.lineStart + 1, ...blockLines);
         newContent = lines.join("\n");
       } else {
-        new import_obsidian17.Notice("Could not find the entry in the block to update.");
+        new import_obsidian16.Notice("Could not find the entry in the block to update.");
         return;
       }
     } else {
@@ -3717,21 +3706,21 @@ var TrackerProcessor = class {
         const newBlockContent = lines.join("\n");
         newContent = content.replace(source.trimEnd(), newBlockContent.trimEnd());
       } else {
-        new import_obsidian17.Notice("Could not find the entry in the block to update.");
+        new import_obsidian16.Notice("Could not find the entry in the block to update.");
         return;
       }
     }
     await this.app.vault.modify(file, newContent);
-    new import_obsidian17.Notice(`Updated serving size for ${oldEntryName}.`);
+    new import_obsidian16.Notice(`Updated serving size for ${oldEntryName}.`);
   }
   async handleRemoveRecipe(entryName, source, el, ctx) {
     if (!ctx || !ctx.sourcePath) {
-      new import_obsidian17.Notice("Could not determine current file. Please try again.");
+      new import_obsidian16.Notice("Could not determine current file. Please try again.");
       return;
     }
     const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-    if (!(file instanceof import_obsidian17.TFile)) {
-      new import_obsidian17.Notice("Current file not found.");
+    if (!(file instanceof import_obsidian16.TFile)) {
+      new import_obsidian16.Notice("Current file not found.");
       return;
     }
     const content = await this.app.vault.read(file);
@@ -3756,7 +3745,7 @@ var TrackerProcessor = class {
         lines.splice(sectionInfo.lineStart, sectionInfo.lineEnd - sectionInfo.lineStart + 1, ...blockLines);
         newContent = lines.join("\n");
       } else {
-        new import_obsidian17.Notice("Could not find the entry in the block to remove.");
+        new import_obsidian16.Notice("Could not find the entry in the block to remove.");
         return;
       }
     } else {
@@ -3776,12 +3765,12 @@ var TrackerProcessor = class {
         const newBlockContent = lines.join("\n");
         newContent = content.replace(source.trimEnd(), newBlockContent.trimEnd());
       } else {
-        new import_obsidian17.Notice("Could not find the entry in the block to remove.");
+        new import_obsidian16.Notice("Could not find the entry in the block to remove.");
         return;
       }
     }
     await this.app.vault.modify(file, newContent);
-    new import_obsidian17.Notice(`Removed ${entryName} from tracker.`);
+    new import_obsidian16.Notice(`Removed ${entryName} from tracker.`);
   }
   /**
    * Main entry point for the processor
@@ -3797,7 +3786,7 @@ var TrackerProcessor = class {
     if (data.originalId.toLowerCase() === "today" || data.originalId === "") {
       if (ctx && ctx.sourcePath) {
         const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-        if (file instanceof import_obsidian17.TFile) {
+        if (file instanceof import_obsidian16.TFile) {
           try {
             const content = await this.app.vault.read(file);
             const sectionInfo = ctx.getSectionInfo(el);
@@ -3896,11 +3885,11 @@ function registerTrackerProcessor(plugin) {
 }
 
 // src/ui/renders/WeeklyPlannerRenderer.ts
-var import_obsidian19 = require("obsidian");
+var import_obsidian18 = require("obsidian");
 
 // src/ui/modals/FoodListEditorModal.ts
-var import_obsidian18 = require("obsidian");
-var FoodListEditorModal = class extends import_obsidian18.Modal {
+var import_obsidian17 = require("obsidian");
+var FoodListEditorModal = class extends import_obsidian17.Modal {
   constructor(app, recipeManager, settings, currentFoods, onSave) {
     super(app);
     this.allRecipes = [];
@@ -3922,7 +3911,7 @@ var FoodListEditorModal = class extends import_obsidian18.Modal {
       this.allRecipes = await this.recipeManager.getAllRecipes();
       this.categories = await this.recipeManager.getRecipeCategories();
     } catch (e) {
-      new import_obsidian18.Notice("Failed to load recipes");
+      new import_obsidian17.Notice("Failed to load recipes");
     } finally {
       this.isLoading = false;
       this.display();
@@ -4079,7 +4068,7 @@ var FoodListEditorModal = class extends import_obsidian18.Modal {
       const editBtn = counter.createSpan({ cls: "tracker-table__edit-icon" });
       editBtn.style.cursor = "pointer";
       editBtn.style.marginLeft = "8px";
-      (0, import_obsidian18.setIcon)(editBtn, "pencil");
+      (0, import_obsidian17.setIcon)(editBtn, "pencil");
       editBtn.onclick = () => {
         const recipe = this.allRecipes.find(
           (r) => {
@@ -4106,7 +4095,7 @@ var FoodListEditorModal = class extends import_obsidian18.Modal {
             }
           ).open();
         } else {
-          new import_obsidian18.Notice("Recipe details not found.");
+          new import_obsidian17.Notice("Recipe details not found.");
         }
       };
       const deleteBtn = counter.createEl("button", { text: "\u{1F5D1}", cls: "scheduler-counter-btn" });
@@ -4127,7 +4116,7 @@ var FoodListEditorModal = class extends import_obsidian18.Modal {
 // src/ui/renders/WeeklyPlannerRenderer.ts
 var WeeklyPlannerRenderer = class {
   async render(source, el, ctx, app, recipeManager, settings) {
-    const data = (0, import_obsidian19.parseYaml)(source);
+    const data = (0, import_obsidian18.parseYaml)(source);
     if (!data || !data.foods || !Array.isArray(data.foods)) {
       el.createEl("p", { text: "Invalid weeklyplannerV2 data. Ensure it has a 'foods' list." });
       return;
@@ -4278,7 +4267,7 @@ var WeeklyPlannerRenderer = class {
           const lines = content.split("\n");
           const blockLines = lines.slice(info.lineStart + 1, info.lineEnd);
           const blockSource = blockLines.join("\n");
-          const parsedData = (0, import_obsidian19.parseYaml)(blockSource);
+          const parsedData = (0, import_obsidian18.parseYaml)(blockSource);
           if (parsedData && parsedData.foods) {
             const targetItem = parsedData.foods.find((f) => f.name === item.name);
             if (targetItem) {
@@ -4311,7 +4300,7 @@ var WeeklyPlannerRenderer = class {
         const editBtn2 = counter.createSpan({ cls: "tracker-table__edit-icon" });
         editBtn2.style.cursor = "pointer";
         editBtn2.style.marginLeft = "8px";
-        (0, import_obsidian19.setIcon)(editBtn2, "pencil");
+        (0, import_obsidian18.setIcon)(editBtn2, "pencil");
         editBtn2.onclick = async () => {
           const categories = await recipeManager.getRecipeCategories();
           const recipe = allRecipes.find(
@@ -4331,14 +4320,14 @@ var WeeklyPlannerRenderer = class {
               (newServings, newCategory) => updateServing(newServings, newCategory)
             ).open();
           } else {
-            new import_obsidian19.Notice("Recipe details not found.");
+            new import_obsidian18.Notice("Recipe details not found.");
           }
         };
         const deleteBtn = counter.createSpan({ cls: "tracker-table__edit-icon" });
         deleteBtn.style.cursor = "pointer";
         deleteBtn.style.marginLeft = "8px";
         deleteBtn.style.color = "var(--text-error)";
-        (0, import_obsidian19.setIcon)(deleteBtn, "trash");
+        (0, import_obsidian18.setIcon)(deleteBtn, "trash");
         deleteBtn.onclick = () => updateServing(0);
       }
     }
@@ -4346,7 +4335,7 @@ var WeeklyPlannerRenderer = class {
 };
 
 // src/services/MarkdownSettingsService.ts
-var import_obsidian20 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 
 // node_modules/js-yaml/dist/js-yaml.mjs
 function isNothing(subject) {
@@ -6941,14 +6930,14 @@ var MarkdownSettingsService = class {
     this.settings = settings;
   }
   getSettingsFilePath() {
-    return (0, import_obsidian20.normalizePath)(`${this.settings.recipeFolder}/Data/Settings.md`);
+    return (0, import_obsidian19.normalizePath)(`${this.settings.recipeFolder}/Data/Settings.md`);
   }
   async ensureFolder(folderPath) {
-    const path = (0, import_obsidian20.normalizePath)(folderPath);
+    const path = (0, import_obsidian19.normalizePath)(folderPath);
     const parts = path.split("/");
     let currentPath = "";
     for (const part of parts) {
-      currentPath = currentPath ? (0, import_obsidian20.normalizePath)(`${currentPath}/${part}`) : part;
+      currentPath = currentPath ? (0, import_obsidian19.normalizePath)(`${currentPath}/${part}`) : part;
       const folder = this.app.vault.getAbstractFileByPath(currentPath);
       if (!folder) {
         await this.app.vault.createFolder(currentPath);
@@ -6958,8 +6947,8 @@ var MarkdownSettingsService = class {
   async loadSettings() {
     const filePath = this.getSettingsFilePath();
     const file = this.app.vault.getAbstractFileByPath(filePath);
-    if (!(file instanceof import_obsidian20.TFile)) {
-      await this.ensureFolder((0, import_obsidian20.normalizePath)(`${this.settings.recipeFolder}/Data`));
+    if (!(file instanceof import_obsidian19.TFile)) {
+      await this.ensureFolder((0, import_obsidian19.normalizePath)(`${this.settings.recipeFolder}/Data`));
       const defaultContent = `My food settings data
 
 \`\`\`yaml
@@ -6982,7 +6971,7 @@ categories:
     const match = content.match(regex);
     if (match && match[1]) {
       try {
-        return (0, import_obsidian20.parseYaml)(match[1]);
+        return (0, import_obsidian19.parseYaml)(match[1]);
       } catch (e) {
         console.error("Failed to parse YAML block in settings file:", e);
         return null;
@@ -6994,8 +6983,8 @@ categories:
     const filePath = this.getSettingsFilePath();
     let file = this.app.vault.getAbstractFileByPath(filePath);
     const yamlString = dump(newSettingsData);
-    if (!(file instanceof import_obsidian20.TFile)) {
-      await this.ensureFolder((0, import_obsidian20.normalizePath)(`${this.settings.recipeFolder}/Data`));
+    if (!(file instanceof import_obsidian19.TFile)) {
+      await this.ensureFolder((0, import_obsidian19.normalizePath)(`${this.settings.recipeFolder}/Data`));
       const defaultContent = `My food settings data
 
 \`\`\`yaml
@@ -7023,13 +7012,13 @@ ${yamlString}\`\`\`
 };
 
 // src/main.ts
-var PantryPlugin = class extends import_obsidian21.Plugin {
+var PantryPlugin = class extends import_obsidian20.Plugin {
   async onload() {
     console.log("PANTRY_V2_LOADED");
     await this.loadSettings();
     this.recipeManager = new RecipeFileManager(this.app, this.settings);
     this.llmService = new LLMAPIService(this.settings.llmApiKey, this.settings.llmEndpoint, this.settings.llmModel);
-    this.fatSecretService = new FatSecretAPIService(this.settings.fatSecretClientId, this.settings.fatSecretClientSecret, import_obsidian21.requestUrl);
+    this.fatSecretService = new FatSecretAPIService(this.settings.fatSecretClientId, this.settings.fatSecretClientSecret, import_obsidian20.requestUrl);
     this.noteManager = new WeeklyNoteManager(this.app, this.settings);
     this.markdownSettingsService = new MarkdownSettingsService(this.app, this.settings);
     this.app.workspace.onLayoutReady(async () => {
@@ -7091,14 +7080,14 @@ var PantryPlugin = class extends import_obsidian21.Plugin {
   }
   checkApiKey() {
     if (!this.settings.llmApiKey) {
-      new import_obsidian21.Notice("Please set your LLM API Key in the plugin settings.");
+      new import_obsidian20.Notice("Please set your LLM API Key in the plugin settings.");
       return false;
     }
     return true;
   }
   checkFatSecretCredentials() {
     if (!this.settings.fatSecretClientId || !this.settings.fatSecretClientSecret) {
-      new import_obsidian21.Notice("Please set your FatSecret Client ID and Secret in the plugin settings.");
+      new import_obsidian20.Notice("Please set your FatSecret Client ID and Secret in the plugin settings.");
       return false;
     }
     return true;
@@ -7111,7 +7100,7 @@ var PantryPlugin = class extends import_obsidian21.Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
     this.llmService = new LLMAPIService(this.settings.llmApiKey, this.settings.llmEndpoint, this.settings.llmModel);
-    this.fatSecretService = new FatSecretAPIService(this.settings.fatSecretClientId, this.settings.fatSecretClientSecret, import_obsidian21.requestUrl);
+    this.fatSecretService = new FatSecretAPIService(this.settings.fatSecretClientId, this.settings.fatSecretClientSecret, import_obsidian20.requestUrl);
   }
 };
 /*! Bundled license information:

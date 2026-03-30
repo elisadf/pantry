@@ -68,7 +68,7 @@ export class WeeklyNoteManager {
 
     async createWeeklyNoteV2(
         weekString: string, 
-        recipes: { name: string, path: string, servings?: number }[], 
+        recipes: { name: string, path: string, servings?: number, category?: string }[], 
         extras: string,
         summaryCodeblock: string
     ): Promise<string> {
@@ -92,6 +92,9 @@ export class WeeklyNoteManager {
             const basename = r.path.split("/").pop()?.replace(".md", "") || r.name;
             lines.push(`  - name: ${basename}`);
             lines.push(`    servings: ${r.servings || 1}`);
+            if (r.category) {
+                lines.push(`    category: ${r.category}`);
+            }
         });
         lines.push("```");
 

@@ -1,10 +1,10 @@
-import { App, Modal, Notice } from "obsidian";
+import { App, Modal, Notice, setIcon } from "obsidian";
 import { RecipeFileManager, FoodItemFrontmatter } from "../../services/RecipeFileManager";
 import { WeeklyNoteManager } from "../../services/WeeklyNoteManager";
 import { calculateWeeklyBalance, generateWeeklySummaryCodeblock } from "../../calculators/weeklyBalance";
 import { PantryPluginSettings } from "../../settings";
-import { WeeklySchedulerModal } from "./WeeklySchedulerModal";
 import { WeeklyFoodItem } from "../../data/WeeklyPlannerData";
+import { EditWeeklyServingModal } from "./EditWeeklyServingModal";
 
 export class WeeklyPlannerV2Modal extends Modal {
     private recipeManager: RecipeFileManager;
@@ -12,7 +12,8 @@ export class WeeklyPlannerV2Modal extends Modal {
     private settings: PantryPluginSettings;
     
     private allRecipes: { path: string; frontmatter: FoodItemFrontmatter }[] = [];
-    private selectedRecipes: Set<string> = new Set();
+    private selectedRecipes: Map<string, { servings: number; category: string }> = new Map();
+
     
     private categories: string[] = [];
     private weekString: string;
@@ -155,7 +156,7 @@ export class WeeklyPlannerV2Modal extends Modal {
         this.updateSummary();
 
         const buttonGroup = contentEl.createDiv("button-group");
-        const createBtn = buttonGroup.createEl("button", { text: "Create Weekly Note V2", cls: "primary" });
+        const createBtn = buttonGroup.createEl("button", { text: "Create Weekly Plan", cls: "primary" });
         createBtn.onclick = () => this.handleCreate();
 
         const cancelBtn = buttonGroup.createEl("button", { text: "Cancel", cls: "secondary" });
@@ -170,7 +171,7 @@ export class WeeklyPlannerV2Modal extends Modal {
 
         const selectedDocs = this.allRecipes
             .filter(r => this.selectedRecipes.has(r.path))
-            .map(r => ({ frontmatter: r.frontmatter, servings: 1 }));
+            .map(r => ({ frontmatter: r.frontmatter, servings: this.selectedRecipes.get(r.path)!.servings }));
 
         const stats = calculateWeeklyBalance(
             selectedDocs,
@@ -234,7 +235,7 @@ export class WeeklyPlannerV2Modal extends Modal {
                     }
                     const pill = wrap.createEl('button', { text: name, cls: 'suggestion-pill' });
                     pill.onclick = () => {
-                        this.selectedRecipes.add(r.path);
+                        this.selectedRecipes.set(r.path, { servings: 1, category: (r.frontmatter.category as string) || 'Uncategorized' });
                         this.display();
                     };
                 });
@@ -255,32 +256,37 @@ export class WeeklyPlannerV2Modal extends Modal {
                 const parts = r.path.split('/');
                 name = parts[parts.length - 1].replace(/\.md$/i, '');
             }
-            return { path: r.path, name, frontmatter: r.frontmatter };
+            const selectionData = this.selectedRecipes.get(r.path)!;
+            return { 
+                path: r.path, 
+                name, 
+                frontmatter: r.frontmatter,
+                servings: selectionData.servings,
+                category: selectionData.category
+            };
         });
 
-        new WeeklySchedulerModal(this.app, recipesForScheduler, this.settings, async (schedules: any[]) => {
-            const stats = calculateWeeklyBalance(
-                schedules.map(s => ({ frontmatter: s.frontmatter, servings: s.servings })),
-                this.settings.dailyCalorieTarget,
-                this.settings.dailyProteinTarget,
-                this.settings.dailyFatTarget,
-                this.settings.dailyCarbsTarget,
-                this.settings.fibreTargetPerDay
-            );
+        const stats = calculateWeeklyBalance(
+            recipesForScheduler.map(s => ({ frontmatter: s.frontmatter, servings: s.servings })),
+            this.settings.dailyCalorieTarget,
+            this.settings.dailyProteinTarget,
+            this.settings.dailyFatTarget,
+            this.settings.dailyCarbsTarget,
+            this.settings.fibreTargetPerDay
+        );
 
-            try {
-                const path = await this.noteManager.createWeeklyNoteV2(
-                    this.weekString,
-                    schedules.map(s => ({ name: s.name, path: s.path, servings: s.servings })) as (WeeklyFoodItem & { path: string })[],
-                    '',
-                    generateWeeklySummaryCodeblock(stats, this.settings.energyUnit)
-                );
-                new Notice(`Created weekly plan v2: ${path}`);
-                this.close();
-            } catch (error: any) {
-                new Notice(`Error creating note: ${error.message}`);
-            }
-        }).open();
+        try {
+            const path = await this.noteManager.createWeeklyNoteV2(
+                this.weekString,
+                recipesForScheduler as (WeeklyFoodItem & { path: string })[],
+                '',
+                generateWeeklySummaryCodeblock(stats, this.settings.energyUnit)
+            );
+            new Notice(`Created weekly plan: ${path}`);
+            this.close();
+        } catch (error: any) {
+            new Notice(`Error creating note: ${error.message}`);
+        }
     }
 
     onClose() {
@@ -345,9 +351,11 @@ export class WeeklyPlannerV2Modal extends Modal {
             cb.checked = isSelected;
             cb.onclick = e => e.stopPropagation();
             cb.onchange = e => {
-                (e.target as HTMLInputElement).checked
-                    ? this.selectedRecipes.add(recipe.path)
-                    : this.selectedRecipes.delete(recipe.path);
+                if ((e.target as HTMLInputElement).checked) {
+                    this.selectedRecipes.set(recipe.path, { servings: 1, category });
+                } else {
+                    this.selectedRecipes.delete(recipe.path);
+                }
                 this.updateSummary();
             };
 
@@ -358,13 +366,51 @@ export class WeeklyPlannerV2Modal extends Modal {
                 attr: { style: 'font-size:12px; color:var(--text-muted);' }
             });
 
+            if (isSelected) {
+                const selectionData = this.selectedRecipes.get(recipe.path)!;
+                const editContainer = item.createDiv({ attr: { style: 'display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted); margin-right:8px;' } });
+                editContainer.createSpan({ text: `×${selectionData.servings} (${selectionData.category})` });
+                
+                const editBtn = editContainer.createSpan({ cls: 'tracker-table__edit-icon' });
+                editBtn.style.cursor = 'pointer';
+                setIcon(editBtn, 'pencil');
+                editBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const weeklyItem: WeeklyFoodItem = {
+                        name: name!,
+                        servings: selectionData.servings,
+                        category: selectionData.category
+                    };
+                    
+                    new EditWeeklyServingModal(
+                        this.app,
+                        weeklyItem,
+                        recipe.frontmatter,
+                        this.categories,
+                        this.settings,
+                        (newServings, newCategory) => {
+                            if (newServings === 0) {
+                                this.selectedRecipes.delete(recipe.path);
+                            } else {
+                                this.selectedRecipes.set(recipe.path, { servings: newServings, category: newCategory });
+                            }
+                            this.updateSummary();
+                            this.display();
+                        }
+                    ).open();
+                };
+            }
+
             item.onclick = () => {
-                this.selectedRecipes.has(recipe.path)
-                    ? this.selectedRecipes.delete(recipe.path)
-                    : this.selectedRecipes.add(recipe.path);
+                if (this.selectedRecipes.has(recipe.path)) {
+                    this.selectedRecipes.delete(recipe.path);
+                } else {
+                    this.selectedRecipes.set(recipe.path, { servings: 1, category });
+                }
                 cb.checked = this.selectedRecipes.has(recipe.path);
                 item.classList.toggle('is-selected', this.selectedRecipes.has(recipe.path));
                 this.updateSummary();
+                this.display(); // re-render to show/hide edit button
             };
         });
     }
