@@ -68,12 +68,12 @@ export class TrackerTableRenderer {
                     }
                 }
 
-                const headerRow = tbody.createEl('tr', { cls: 'tracker-table__row tracker-table__category-header' });
+                const headerRow = tbody.createEl('tr', { cls: 'tracker-table__row tracker-table__category-header collapsed' });
                 const nameCell = headerRow.createEl('td', { 
                     cls: 'tracker-table__cell tracker-table__category-header-cell',
                 });
                 
-                const toggleIcon = nameCell.createSpan({ cls: 'tracker-table__category-toggle', text: '▼' });
+                const toggleIcon = nameCell.createSpan({ cls: 'tracker-table__category-toggle', text: '▶' });
                 nameCell.createSpan({ cls: 'tracker-table__category-name', text: category });
 
                 const renderMealMacro = (val: number, unit: string, type: string) => {
@@ -96,8 +96,6 @@ export class TrackerTableRenderer {
                 headerRow.onclick = () => {
                     const isCollapsed = headerRow.classList.toggle('collapsed');
                     toggleIcon.innerText = isCollapsed ? '▶' : '▼';
-                    // We need to escape the category name to use it in querySelector, or just use the generated rows directly.
-                    // Better to use a safe class name or directly map them.
                     const rows = tbody.querySelectorAll(`.tracker-table__row[data-category="${CSS.escape(category)}"]`);
                     rows.forEach(r => {
                         (r as HTMLElement).style.display = isCollapsed ? 'none' : '';
@@ -110,6 +108,10 @@ export class TrackerTableRenderer {
                     cls: 'tracker-table__row',
                     attr: { 'data-category': category }
                 });
+                // Initialize as hidden if it's in a categorised group
+                if (category !== 'Uncategorized' || categoryOrder.length > 1) {
+                    row.style.display = 'none';
+                }
                 
                 // Recipe Name Cell
                 const nameCell = row.createEl('td', { cls: 'tracker-table__cell tracker-table__cell--recipe-name' });
@@ -149,8 +151,10 @@ export class TrackerTableRenderer {
                     const actionsCell = row.createEl('td', { cls: 'tracker-table__cell tracker-table__cell--actions' });
                     if (onRemoveRecipe) {
                         const removeIcon = actionsCell.createSpan({ cls: 'tracker-table__remove-icon' });
-                        setIcon(removeIcon, 'minus-circle');
+                        setIcon(removeIcon, 'trash');
                         removeIcon.style.cursor = 'pointer';
+                        removeIcon.style.marginLeft = '8px';
+                        removeIcon.style.color = 'var(--text-error)';
                         removeIcon.onclick = () => onRemoveRecipe(detail);
                     }
                 } else {
@@ -202,6 +206,17 @@ export class TrackerTableRenderer {
         return val % 1 !== 0 ? val.toFixed(1) : val.toString();
     }
 
+    private getMacroColors(type: string): { base: string, lighter: string } {
+        switch (type) {
+            case 'calories': return { base: '#8E44AD', lighter: '#C39BD3' };
+            case 'protein': return { base: '#27AE60', lighter: '#A9DFBF' };
+            case 'fat': return { base: '#f1c21b', lighter: '#F7DC6F' };
+            case 'carbs': return { base: '#3498DB', lighter: '#AED6F1' };
+            case 'fibre': return { base: '#F39C12', lighter: '#FAD7A1' };
+            default: return { base: '#95A5A6', lighter: '#D5DBDB' };
+        }
+    }
+
     private renderMacroCell(row: HTMLElement, type: string, value: number, target: number, unit: string): void {
         const cell = row.createEl('td', { cls: `tracker-table__cell tracker-table__cell--numeric tracker-table__cell--${type}` });
         
@@ -214,11 +229,26 @@ export class TrackerTableRenderer {
 
         // Tiny inline progress bar
         const fillWidth = Math.min(percentage, 100);
+        const isOverload = value > target;
+        const colors = this.getMacroColors(type);
+
         const barContainer = cell.createDiv({ cls: `tracker-table__bar tracker-table__bar--${type}` });
-        barContainer.createDiv({ 
+        const fill = barContainer.createDiv({ 
             cls: 'tracker-table__bar-fill',
             attr: { style: `width: ${fillWidth}%;` }
         });
+
+        if (isOverload) {
+            fill.style.background = `repeating-linear-gradient(
+                45deg,
+                ${colors.base},
+                ${colors.base} 4px,
+                ${colors.lighter} 4px,
+                ${colors.lighter} 8px
+            )`;
+        } else {
+            fill.style.backgroundColor = colors.base;
+        }
     }
 
     private renderTotalCell(row: HTMLElement, type: string, value: number, unit: string): void {
@@ -238,12 +268,26 @@ export class TrackerTableRenderer {
 
         const percentage = target > 0 ? Math.round((current / target) * 100) : 0;
         const fillWidth = Math.min(percentage, 100);
+        const isOverload = current > target;
+        const colors = this.getMacroColors(type);
         
         const barContainer = cell.createDiv({ cls: `tracker-table__bar tracker-table__bar--${type}` });
-        barContainer.createDiv({ 
+        const fill = barContainer.createDiv({ 
             cls: 'tracker-table__bar-fill',
             attr: { style: `width: ${fillWidth}%;` }
         });
+
+        if (isOverload) {
+            fill.style.background = `repeating-linear-gradient(
+                45deg,
+                ${colors.base},
+                ${colors.base} 4px,
+                ${colors.lighter} 4px,
+                ${colors.lighter} 8px
+            )`;
+        } else {
+            fill.style.backgroundColor = colors.base;
+        }
 
         cell.createDiv({ cls: 'tracker-table__target-percentage', text: `${percentage}%` });
     }

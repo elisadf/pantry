@@ -1218,11 +1218,6 @@ var RecipeFileManager = class {
   async ensureFolderStructure() {
     const baseFolder = (0, import_obsidian2.normalizePath)(this.settings.recipeFolder);
     await this.ensureFolder(baseFolder);
-    const categories = ["Breakfast", "Mains", "Sauce", "Snack", "Dessert"];
-    for (const category of categories) {
-      const folderPath = (0, import_obsidian2.normalizePath)(`${baseFolder}/${category.charAt(0).toUpperCase() + category.slice(1)}`);
-      await this.ensureFolder(folderPath);
-    }
   }
   async ensureFolder(folderPath) {
     const path = (0, import_obsidian2.normalizePath)(folderPath);
@@ -2501,12 +2496,30 @@ var TrackerCardRenderer = class {
       "g"
     );
   }
+  getMacroColors(type2) {
+    switch (type2) {
+      case "calories":
+        return { base: "#8E44AD", lighter: "#C39BD3" };
+      case "protein":
+        return { base: "#27AE60", lighter: "#A9DFBF" };
+      case "fat":
+        return { base: "#f1c21b", lighter: "#F7DC6F" };
+      case "carbs":
+        return { base: "#3498DB", lighter: "#AED6F1" };
+      case "fibre":
+        return { base: "#F39C12", lighter: "#FAD7A1" };
+      default:
+        return { base: "#95A5A6", lighter: "#D5DBDB" };
+    }
+  }
   renderCard(container, type2, label, current, target, unit) {
     const card = container.createDiv({ cls: `tracker-card tracker-card--${type2}` });
     const content = card.createDiv({ cls: "tracker-card__content" });
     content.createDiv({ cls: "tracker-card__name", text: label });
     const percentage = target > 0 ? Math.round(current / target * 100) : 0;
     const fillWidth = Math.min(percentage, 100);
+    const isOverload = current > target;
+    const colors = this.getMacroColors(type2);
     const valueRow = content.createDiv({ cls: "tracker-card__value-row" });
     const formattedCurrent = current % 1 !== 0 ? current.toFixed(1) : current.toString();
     const valCol = valueRow.createDiv({ cls: "tracker-card__value-col" });
@@ -2514,10 +2527,21 @@ var TrackerCardRenderer = class {
     valCol.createSpan({ cls: "tracker-card__unit", text: ` ${unit}` });
     valueRow.createDiv({ cls: "tracker-card__percentage", text: `${percentage}%` });
     const barContainer = content.createDiv({ cls: "tracker-card__bar" });
-    barContainer.createDiv({
+    const fill = barContainer.createDiv({
       cls: "tracker-card__bar-fill",
       attr: { style: `width: ${fillWidth}%;` }
     });
+    if (isOverload) {
+      fill.style.background = `repeating-linear-gradient(
+                45deg,
+                ${colors.base},
+                ${colors.base} 4px,
+                ${colors.lighter} 4px,
+                ${colors.lighter} 8px
+            )`;
+    } else {
+      fill.style.backgroundColor = colors.base;
+    }
   }
 };
 
@@ -2566,11 +2590,11 @@ var TrackerTableRenderer = class {
             categoryTotals.fibre += detail.macros.fibre;
           }
         }
-        const headerRow = tbody.createEl("tr", { cls: "tracker-table__row tracker-table__category-header" });
+        const headerRow = tbody.createEl("tr", { cls: "tracker-table__row tracker-table__category-header collapsed" });
         const nameCell = headerRow.createEl("td", {
           cls: "tracker-table__cell tracker-table__category-header-cell"
         });
-        const toggleIcon = nameCell.createSpan({ cls: "tracker-table__category-toggle", text: "\u25BC" });
+        const toggleIcon = nameCell.createSpan({ cls: "tracker-table__category-toggle", text: "\u25B6" });
         nameCell.createSpan({ cls: "tracker-table__category-name", text: category });
         const renderMealMacro = (val, unit, type2) => {
           const cell = headerRow.createEl("td", { cls: `tracker-table__cell tracker-table__category-header-cell tracker-table__category-macro-total tracker-table__cell--numeric tracker-table__cell--${type2}` });
@@ -2598,6 +2622,9 @@ var TrackerTableRenderer = class {
           cls: "tracker-table__row",
           attr: { "data-category": category }
         });
+        if (category !== "Uncategorized" || categoryOrder.length > 1) {
+          row.style.display = "none";
+        }
         const nameCell = row.createEl("td", { cls: "tracker-table__cell tracker-table__cell--recipe-name" });
         nameCell.createSpan({ text: detail.name });
         if (!detail.notFound && detail.macros) {
@@ -2625,8 +2652,10 @@ var TrackerTableRenderer = class {
           const actionsCell = row.createEl("td", { cls: "tracker-table__cell tracker-table__cell--actions" });
           if (onRemoveRecipe) {
             const removeIcon = actionsCell.createSpan({ cls: "tracker-table__remove-icon" });
-            (0, import_obsidian13.setIcon)(removeIcon, "minus-circle");
+            (0, import_obsidian13.setIcon)(removeIcon, "trash");
             removeIcon.style.cursor = "pointer";
+            removeIcon.style.marginLeft = "8px";
+            removeIcon.style.color = "var(--text-error)";
             removeIcon.onclick = () => onRemoveRecipe(detail);
           }
         } else {
@@ -2666,6 +2695,22 @@ var TrackerTableRenderer = class {
   formatNumber(val) {
     return val % 1 !== 0 ? val.toFixed(1) : val.toString();
   }
+  getMacroColors(type2) {
+    switch (type2) {
+      case "calories":
+        return { base: "#8E44AD", lighter: "#C39BD3" };
+      case "protein":
+        return { base: "#27AE60", lighter: "#A9DFBF" };
+      case "fat":
+        return { base: "#f1c21b", lighter: "#F7DC6F" };
+      case "carbs":
+        return { base: "#3498DB", lighter: "#AED6F1" };
+      case "fibre":
+        return { base: "#F39C12", lighter: "#FAD7A1" };
+      default:
+        return { base: "#95A5A6", lighter: "#D5DBDB" };
+    }
+  }
   renderMacroCell(row, type2, value, target, unit) {
     const cell = row.createEl("td", { cls: `tracker-table__cell tracker-table__cell--numeric tracker-table__cell--${type2}` });
     const valueWrapper = cell.createDiv({ cls: "tracker-table__value-wrapper" });
@@ -2674,11 +2719,24 @@ var TrackerTableRenderer = class {
     const percentage = target > 0 ? Math.round(value / target * 100) : 0;
     valueWrapper.createSpan({ cls: "tracker-table__percentage", text: ` (${percentage}%)` });
     const fillWidth = Math.min(percentage, 100);
+    const isOverload = value > target;
+    const colors = this.getMacroColors(type2);
     const barContainer = cell.createDiv({ cls: `tracker-table__bar tracker-table__bar--${type2}` });
-    barContainer.createDiv({
+    const fill = barContainer.createDiv({
       cls: "tracker-table__bar-fill",
       attr: { style: `width: ${fillWidth}%;` }
     });
+    if (isOverload) {
+      fill.style.background = `repeating-linear-gradient(
+                45deg,
+                ${colors.base},
+                ${colors.base} 4px,
+                ${colors.lighter} 4px,
+                ${colors.lighter} 8px
+            )`;
+    } else {
+      fill.style.backgroundColor = colors.base;
+    }
   }
   renderTotalCell(row, type2, value, unit) {
     const cell = row.createEl("td", { cls: `tracker-table__cell tracker-table__cell--numeric tracker-table__cell--total-value tracker-table__cell--${type2}` });
@@ -2693,11 +2751,24 @@ var TrackerTableRenderer = class {
     valueWrapper.createSpan({ cls: "tracker-table__unit", text: ` ${unit}` });
     const percentage = target > 0 ? Math.round(current / target * 100) : 0;
     const fillWidth = Math.min(percentage, 100);
+    const isOverload = current > target;
+    const colors = this.getMacroColors(type2);
     const barContainer = cell.createDiv({ cls: `tracker-table__bar tracker-table__bar--${type2}` });
-    barContainer.createDiv({
+    const fill = barContainer.createDiv({
       cls: "tracker-table__bar-fill",
       attr: { style: `width: ${fillWidth}%;` }
     });
+    if (isOverload) {
+      fill.style.background = `repeating-linear-gradient(
+                45deg,
+                ${colors.base},
+                ${colors.base} 4px,
+                ${colors.lighter} 4px,
+                ${colors.lighter} 8px
+            )`;
+    } else {
+      fill.style.backgroundColor = colors.base;
+    }
     cell.createDiv({ cls: "tracker-table__target-percentage", text: `${percentage}%` });
   }
   renderRemainingCell(row, type2, remaining, unit) {
@@ -2828,12 +2899,30 @@ var WeeklyTrackerRenderer = class {
     content.createDiv({ cls: "macro-ratio-card__label", text: label });
     content.createDiv({ cls: "macro-ratio-card__value", text: `${percentage}%` });
   }
+  getMacroColors(type2) {
+    switch (type2) {
+      case "calories":
+        return { base: "#8E44AD", lighter: "#C39BD3" };
+      case "protein":
+        return { base: "#27AE60", lighter: "#A9DFBF" };
+      case "fat":
+        return { base: "#f1c21b", lighter: "#F7DC6F" };
+      case "carbs":
+        return { base: "#3498DB", lighter: "#AED6F1" };
+      case "fibre":
+        return { base: "#F39C12", lighter: "#FAD7A1" };
+      default:
+        return { base: "#95A5A6", lighter: "#D5DBDB" };
+    }
+  }
   renderCard(container, type2, label, current, target, unit) {
     const card = container.createDiv({ cls: `tracker-card tracker-card--${type2}` });
     const content = card.createDiv({ cls: "tracker-card__content" });
     content.createDiv({ cls: "tracker-card__name", text: label });
     const percentage = target > 0 ? Math.round(current / target * 100) : 0;
     const fillWidth = Math.min(percentage, 100);
+    const isOverload = current > target;
+    const colors = this.getMacroColors(type2);
     const valueRow = content.createDiv({ cls: "tracker-card__value-row" });
     const formattedCurrent = current % 1 !== 0 ? current.toFixed(1) : current.toString();
     const valCol = valueRow.createDiv({ cls: "tracker-card__value-col" });
@@ -2841,10 +2930,21 @@ var WeeklyTrackerRenderer = class {
     valCol.createSpan({ cls: "tracker-card__unit", text: ` ${unit}` });
     valueRow.createDiv({ cls: "tracker-card__percentage", text: `${percentage}%` });
     const barContainer = content.createDiv({ cls: "tracker-card__bar" });
-    barContainer.createDiv({
+    const fill = barContainer.createDiv({
       cls: "tracker-card__bar-fill",
       attr: { style: `width: ${fillWidth}%;` }
     });
+    if (isOverload) {
+      fill.style.background = `repeating-linear-gradient(
+                45deg,
+                ${colors.base},
+                ${colors.base} 4px,
+                ${colors.lighter} 4px,
+                ${colors.lighter} 8px
+            )`;
+    } else {
+      fill.style.backgroundColor = colors.base;
+    }
   }
   renderDailyTable(container, dailyBreakdown, aggregate, targets, settings) {
     const tableWrapper = container.createDiv({ cls: "tracker-table-wrapper" });
@@ -4054,17 +4154,35 @@ var WeeklyPlannerRenderer = class {
       const statusLabel = stats.status === "green" ? "\u{1F7E2} On track" : stats.status === "amber" ? "\u{1F7E0} Needs review" : "\u{1F534} Unbalanced";
       container.createDiv({ text: statusLabel, cls: `weeklyplanner-status weeklyplanner-status--${stats.status}` });
       macros.forEach(({ key, label, unit, total, target }) => {
+        const isOverload = total > target;
         const pct = Math.min(total / target * 100, 100);
-        const colour = pct >= 80 ? "#1D9E75" : pct >= 50 ? "#BA7517" : "#C0392B";
+        const colour = isOverload ? "#D4AC0D" : pct >= 80 ? "#1D9E75" : pct >= 50 ? "#BA7517" : "#C0392B";
         const row = container.createDiv({ cls: "macro-bar-row" });
         row.createSpan({ text: label, cls: "macro-bar-label" });
-        const fill = row.createDiv({ cls: "macro-bar-track" }).createDiv({ cls: "macro-bar-fill" });
+        const track = row.createDiv({ cls: "macro-bar-track" });
+        const fill = track.createDiv({ cls: "macro-bar-fill" });
         fill.style.width = `${pct}%`;
-        fill.style.background = colour;
-        row.createSpan({
+        if (isOverload) {
+          fill.style.background = `repeating-linear-gradient(
+                        45deg,
+                        ${colour},
+                        ${colour} 10px,
+                        #F1C40F 10px,
+                        #F1C40F 20px
+                    )`;
+        } else {
+          fill.style.background = colour;
+        }
+        const valueSpan = row.createSpan({
           text: `${Math.round(total)}${unit} / ${Math.round(target)}${unit}`,
           cls: "macro-bar-value"
         });
+        if (isOverload) {
+          const overAmount = Math.round(total - target);
+          valueSpan.setText(`${Math.round(total)}${unit} / ${Math.round(target)}${unit} (+${overAmount}${unit})`);
+          valueSpan.style.color = "#D4AC0D";
+          valueSpan.style.fontWeight = "bold";
+        }
       });
     } else {
       container.createEl("p", { text: "No matched recipes found to calculate balance." });
@@ -4129,13 +4247,11 @@ var WeeklyPlannerRenderer = class {
       const categoryFoods = foodsByCategory[category];
       const itemCount = categoryFoods.length;
       const detailsEl = list.createEl("details");
-      detailsEl.setAttribute("open", "true");
       detailsEl.style.marginTop = "12px";
       const summaryEl = detailsEl.createEl("summary", { text: `${category} (${itemCount} item${itemCount !== 1 ? "s" : ""})` });
       summaryEl.style.marginBottom = "6px";
       summaryEl.style.color = "var(--text-muted)";
       summaryEl.style.fontSize = "0.9em";
-      summaryEl.style.textTransform = "uppercase";
       summaryEl.style.letterSpacing = "0.05em";
       summaryEl.style.borderBottom = "1px solid var(--background-modifier-border)";
       summaryEl.style.paddingBottom = "4px";
@@ -6848,17 +6964,6 @@ var MarkdownSettingsService = class {
     const filePath = this.getSettingsFilePath();
     const file = this.app.vault.getAbstractFileByPath(filePath);
     if (!(file instanceof import_obsidian19.TFile)) {
-      await this.ensureFolder((0, import_obsidian19.normalizePath)(`${this.settings.recipeFolder}/Data`));
-      const defaultContent = `My food settings data
-
-\`\`\`yaml
-categories:
-  - breakfast
-  - mains
-  - sides
-\`\`\`
-`;
-      await this.app.vault.create(filePath, defaultContent);
       return {
         categories: ["breakfast", "mains", "sides"]
       };
@@ -6927,8 +7032,6 @@ var PantryPlugin = class extends import_obsidian20.Plugin {
     this.noteManager = new WeeklyNoteManager(this.app, this.settings);
     this.markdownSettingsService = new MarkdownSettingsService(this.app, this.settings);
     this.app.workspace.onLayoutReady(async () => {
-      await this.recipeManager.ensureFolderStructure();
-      await this.noteManager.ensureFolder();
       await this.markdownSettingsService.loadSettings();
     });
     this.addSettingTab(new PantrySettingsTab(this.app, this));

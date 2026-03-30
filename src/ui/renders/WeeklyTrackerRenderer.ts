@@ -98,6 +98,17 @@ export class WeeklyTrackerRenderer {
         content.createDiv({ cls: 'macro-ratio-card__value', text: `${percentage}%` });
     }
 
+    private getMacroColors(type: string): { base: string, lighter: string } {
+        switch (type) {
+            case 'calories': return { base: '#8E44AD', lighter: '#C39BD3' };
+            case 'protein': return { base: '#27AE60', lighter: '#A9DFBF' };
+            case 'fat': return { base: '#f1c21b', lighter: '#F7DC6F' };
+            case 'carbs': return { base: '#3498DB', lighter: '#AED6F1' };
+            case 'fibre': return { base: '#F39C12', lighter: '#FAD7A1' };
+            default: return { base: '#95A5A6', lighter: '#D5DBDB' };
+        }
+    }
+
     private renderCard(
         container: HTMLElement, 
         type: MacroType, 
@@ -114,6 +125,8 @@ export class WeeklyTrackerRenderer {
 
         const percentage = target > 0 ? Math.round((current / target) * 100) : 0;
         const fillWidth = Math.min(percentage, 100);
+        const isOverload = current > target;
+        const colors = this.getMacroColors(type);
 
         const valueRow = content.createDiv({ cls: 'tracker-card__value-row' });
         
@@ -126,10 +139,22 @@ export class WeeklyTrackerRenderer {
         valueRow.createDiv({ cls: 'tracker-card__percentage', text: `${percentage}%` });
 
         const barContainer = content.createDiv({ cls: 'tracker-card__bar' });
-        barContainer.createDiv({ 
+        const fill = barContainer.createDiv({ 
             cls: 'tracker-card__bar-fill',
             attr: { style: `width: ${fillWidth}%;` }
         });
+
+        if (isOverload) {
+            fill.style.background = `repeating-linear-gradient(
+                45deg,
+                ${colors.base},
+                ${colors.base} 4px,
+                ${colors.lighter} 4px,
+                ${colors.lighter} 8px
+            )`;
+        } else {
+            fill.style.backgroundColor = colors.base;
+        }
     }
 
     private renderDailyTable(container: HTMLElement, dailyBreakdown: DailyAggregate[], aggregate: MacroAggregate, targets: MacroAggregate, settings: PantryPluginSettings): void {

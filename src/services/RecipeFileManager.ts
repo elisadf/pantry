@@ -32,13 +32,6 @@ export class RecipeFileManager {
         const baseFolder = normalizePath(this.settings.recipeFolder);
         // Ensure the base recipe folder exists
         await this.ensureFolder(baseFolder);
-
-        const categories = ["Breakfast", "Mains", "Sauce", "Snack", "Dessert"];
-        
-        for (const category of categories) {
-            const folderPath = normalizePath(`${baseFolder}/${category.charAt(0).toUpperCase() + category.slice(1)}`);
-            await this.ensureFolder(folderPath);
-        }
     }
 
     private async ensureFolder(folderPath: string): Promise<void> {
