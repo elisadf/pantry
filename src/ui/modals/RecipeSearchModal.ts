@@ -104,7 +104,7 @@ export class RecipeSearchModal extends Modal {
         const mealSelectWrapper = mealSelectionContainer.createDiv({ cls: "pantry-select-wrapper", attr: { style: "position: relative; width: 100%;" } });
         const mealSelect = mealSelectWrapper.createEl("select", { cls: "pantry-form-input pantry-meal-select" });
         
-        const mealOptions = ["- Select -", "Breakfast", "Lunch", "Dinner", "Snack", "Post-Workout Snack", "Uncategorized"];
+        const mealOptions = ["- Select -", ...this.categories, "Uncategorized"];
         mealOptions.forEach(meal => {
             const val = meal === "- Select -" ? "Uncategorized" : meal;
             mealSelect.createEl("option", { text: meal, value: val });
@@ -134,31 +134,9 @@ export class RecipeSearchModal extends Modal {
         this.confirmBtn.onclick = () => {
             if (this.selectedRecipes.size === 0) return;
             
-            const selectedWithServingSize = Array.from(this.selectedRecipes).map(name => {
-                const recipe = this.allRecipes.find(r => {
-                    let rName = r.frontmatter.name;
-                    if (!rName) {
-                        const parts = r.path.split('/');
-                        const filename = parts[parts.length - 1];
-                        rName = filename.replace(/\.md$/i, '');
-                    }
-                    return rName === name;
-                });
-                
-                const originalServingSize = recipe?.frontmatter?.serving_size || recipe?.frontmatter?.default_serving_size;
-                
-                if (originalServingSize) {
-                    const match = originalServingSize.toString().match(/^(\d+(?:\.\d+)?)g?$/i);
-                    if (match) {
-                        const parsedSize = parseFloat(match[1]);
-                        return `${name} (${parsedSize}g)`;
-                    }
-                }
-                
-                return name;
-            });
+            const selectedNames = Array.from(this.selectedRecipes);
 
-            this.onConfirm(selectedWithServingSize, this.selectedMeal);
+            this.onConfirm(selectedNames, this.selectedMeal);
             this.close();
         };
         

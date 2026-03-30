@@ -2027,7 +2027,7 @@ function calculateMacros(entry, recipe) {
   };
   const originalServingSize = parseServingSize(recipe.serving_size || recipe.default_serving_size);
   const baseServingSize = originalServingSize || 100;
-  const effectiveServingSize = entry.servingSize || baseServingSize;
+  const effectiveServingSize = entry.units || baseServingSize;
   const scaleFactor = effectiveServingSize / baseServingSize;
   const macros = {
     calories: Math.round(parseNum(recipe.calories || recipe.calorie_estimate_kcal || 0) * scaleFactor),
@@ -2123,7 +2123,7 @@ var EditWeeklyServingModal = class extends import_obsidian11.Modal {
     const calMultiplier = this.settings.energyUnit === "kcal" ? 1 : 4.184;
     const calUnit = this.settings.energyUnit === "kcal" ? "kcal" : "kJ";
     const macroData = calculateMacros(
-      { name: this.item.name },
+      { name: this.item.name, units: void 0, category: "" },
       // no custom serving size here, just calculate for 1 portion based on recipe serving_size 
       this.frontmatter
     );
@@ -2603,51 +2603,51 @@ var TrackerTableRenderer = class {
   }
   renderBody(table, recipeDetails, aggregate, settings, onEditServingSize, onRemoveRecipe) {
     const tbody = table.createEl("tbody", { cls: "tracker-table__body" });
-    const mealGroups = {};
-    const mealOrder = [];
+    const categoryGroups = {};
+    const categoryOrder = [];
     for (const detail of recipeDetails) {
-      const meal = detail.meal || "Uncategorized";
-      if (!mealGroups[meal]) {
-        mealGroups[meal] = [];
-        mealOrder.push(meal);
+      const category = detail.category || "Uncategorized";
+      if (!categoryGroups[category]) {
+        categoryGroups[category] = [];
+        categoryOrder.push(category);
       }
-      mealGroups[meal].push(detail);
+      categoryGroups[category].push(detail);
     }
-    for (const meal of mealOrder) {
-      const groupDetails = mealGroups[meal];
-      if (meal !== "Uncategorized" || mealOrder.length > 1) {
-        const mealTotals = { calories: 0, protein: 0, fat: 0, carbs: 0, fibre: 0 };
+    for (const category of categoryOrder) {
+      const groupDetails = categoryGroups[category];
+      if (category !== "Uncategorized" || categoryOrder.length > 1) {
+        const categoryTotals = { calories: 0, protein: 0, fat: 0, carbs: 0, fibre: 0 };
         for (const detail of groupDetails) {
           if (detail.macros) {
-            mealTotals.calories += detail.macros.calories;
-            mealTotals.protein += detail.macros.protein;
-            mealTotals.fat += detail.macros.fat;
-            mealTotals.carbs += detail.macros.carbs;
-            mealTotals.fibre += detail.macros.fibre;
+            categoryTotals.calories += detail.macros.calories;
+            categoryTotals.protein += detail.macros.protein;
+            categoryTotals.fat += detail.macros.fat;
+            categoryTotals.carbs += detail.macros.carbs;
+            categoryTotals.fibre += detail.macros.fibre;
           }
         }
-        const headerRow = tbody.createEl("tr", { cls: "tracker-table__row tracker-table__meal-header" });
+        const headerRow = tbody.createEl("tr", { cls: "tracker-table__row tracker-table__category-header" });
         const nameCell = headerRow.createEl("td", {
-          cls: "tracker-table__cell tracker-table__meal-header-cell"
+          cls: "tracker-table__cell tracker-table__category-header-cell"
         });
-        const toggleIcon = nameCell.createSpan({ cls: "tracker-table__meal-toggle", text: "\u25BC" });
-        nameCell.createSpan({ cls: "tracker-table__meal-name", text: meal });
+        const toggleIcon = nameCell.createSpan({ cls: "tracker-table__category-toggle", text: "\u25BC" });
+        nameCell.createSpan({ cls: "tracker-table__category-name", text: category });
         const renderMealMacro = (val, unit, type2) => {
-          const cell = headerRow.createEl("td", { cls: `tracker-table__cell tracker-table__meal-header-cell tracker-table__meal-macro-total tracker-table__cell--numeric tracker-table__cell--${type2}` });
+          const cell = headerRow.createEl("td", { cls: `tracker-table__cell tracker-table__category-header-cell tracker-table__category-macro-total tracker-table__cell--numeric tracker-table__cell--${type2}` });
           const wrapper = cell.createDiv({ cls: "tracker-table__value-wrapper" });
           wrapper.createSpan({ cls: "tracker-table__value", text: this.formatNumber(val) });
           wrapper.createSpan({ cls: "tracker-table__unit", text: ` ${unit}` });
         };
-        renderMealMacro(mealTotals.calories, settings.energyUnit, "calories");
-        renderMealMacro(mealTotals.protein, "g", "protein");
-        renderMealMacro(mealTotals.fat, "g", "fat");
-        renderMealMacro(mealTotals.carbs, "g", "carbs");
-        renderMealMacro(mealTotals.fibre, "g", "fibre");
-        headerRow.createEl("td", { cls: "tracker-table__cell tracker-table__meal-header-cell tracker-table__cell--actions" });
+        renderMealMacro(categoryTotals.calories, settings.energyUnit, "calories");
+        renderMealMacro(categoryTotals.protein, "g", "protein");
+        renderMealMacro(categoryTotals.fat, "g", "fat");
+        renderMealMacro(categoryTotals.carbs, "g", "carbs");
+        renderMealMacro(categoryTotals.fibre, "g", "fibre");
+        headerRow.createEl("td", { cls: "tracker-table__cell tracker-table__category-header-cell tracker-table__cell--actions" });
         headerRow.onclick = () => {
           const isCollapsed = headerRow.classList.toggle("collapsed");
           toggleIcon.innerText = isCollapsed ? "\u25B6" : "\u25BC";
-          const rows = tbody.querySelectorAll(`.tracker-table__row[data-meal="${CSS.escape(meal)}"]`);
+          const rows = tbody.querySelectorAll(`.tracker-table__row[data-category="${CSS.escape(category)}"]`);
           rows.forEach((r) => {
             r.style.display = isCollapsed ? "none" : "";
           });
@@ -2656,7 +2656,7 @@ var TrackerTableRenderer = class {
       for (const detail of groupDetails) {
         const row = tbody.createEl("tr", {
           cls: "tracker-table__row",
-          attr: { "data-meal": meal }
+          attr: { "data-category": category }
         });
         const nameCell = row.createEl("td", { cls: "tracker-table__cell tracker-table__cell--recipe-name" });
         nameCell.createSpan({ text: detail.name });
@@ -3107,7 +3107,7 @@ var RecipeSearchModal = class extends import_obsidian14.Modal {
     mealSelectionContainer.createEl("label", { text: "Select a meal", attr: { style: "font-weight: 500; font-size: 0.9em; color: var(--text-normal);" } });
     const mealSelectWrapper = mealSelectionContainer.createDiv({ cls: "pantry-select-wrapper", attr: { style: "position: relative; width: 100%;" } });
     const mealSelect = mealSelectWrapper.createEl("select", { cls: "pantry-form-input pantry-meal-select" });
-    const mealOptions = ["- Select -", "Breakfast", "Lunch", "Dinner", "Snack", "Post-Workout Snack", "Uncategorized"];
+    const mealOptions = ["- Select -", ...this.categories, "Uncategorized"];
     mealOptions.forEach((meal) => {
       const val = meal === "- Select -" ? "Uncategorized" : meal;
       mealSelect.createEl("option", { text: meal, value: val });
@@ -3127,28 +3127,8 @@ var RecipeSearchModal = class extends import_obsidian14.Modal {
     this.confirmBtn = buttonsContainer.createEl("button", { text: "Add Selected", cls: "pantry-btn pantry-btn-primary" });
     this.confirmBtn.onclick = () => {
       if (this.selectedRecipes.size === 0) return;
-      const selectedWithServingSize = Array.from(this.selectedRecipes).map((name) => {
-        var _a, _b;
-        const recipe = this.allRecipes.find((r) => {
-          let rName = r.frontmatter.name;
-          if (!rName) {
-            const parts = r.path.split("/");
-            const filename = parts[parts.length - 1];
-            rName = filename.replace(/\.md$/i, "");
-          }
-          return rName === name;
-        });
-        const originalServingSize = ((_a = recipe == null ? void 0 : recipe.frontmatter) == null ? void 0 : _a.serving_size) || ((_b = recipe == null ? void 0 : recipe.frontmatter) == null ? void 0 : _b.default_serving_size);
-        if (originalServingSize) {
-          const match = originalServingSize.toString().match(/^(\d+(?:\.\d+)?)g?$/i);
-          if (match) {
-            const parsedSize = parseFloat(match[1]);
-            return `${name} (${parsedSize}g)`;
-          }
-        }
-        return name;
-      });
-      this.onConfirm(selectedWithServingSize, this.selectedMeal);
+      const selectedNames = Array.from(this.selectedRecipes);
+      this.onConfirm(selectedNames, this.selectedMeal);
       this.close();
     };
     this.updateConfirmButtonState();
@@ -3265,7 +3245,7 @@ var RecipeSearchModal = class extends import_obsidian14.Modal {
 // src/ui/modals/ServingSizeModal.ts
 var import_obsidian15 = require("obsidian");
 var ServingSizeModal = class extends import_obsidian15.Modal {
-  constructor(app, recipeName, currentServingSize, originalServingSize, currentMacros, onConfirm) {
+  constructor(app, recipeName, currentServingSize, originalServingSize, currentMacros, currentCategory, categories, onConfirm) {
     super(app);
     this.recipeName = recipeName;
     this.currentServingSize = currentServingSize;
@@ -3280,6 +3260,9 @@ var ServingSizeModal = class extends import_obsidian15.Modal {
     };
     this.currentMacrosPreview = { ...currentMacros };
     this.newServingSize = currentServingSize;
+    this.currentCategory = currentCategory;
+    this.categories = categories;
+    this.newCategory = currentCategory;
     this.onConfirm = onConfirm;
   }
   onOpen() {
@@ -3293,6 +3276,14 @@ var ServingSizeModal = class extends import_obsidian15.Modal {
         cls: "serving-size-modal-info"
       });
     }
+    new import_obsidian15.Setting(contentEl).setName("Category").setDesc("The meal this food belongs to").addDropdown((dropdown) => {
+      const options = ["Uncategorized", ...this.categories];
+      options.forEach((opt) => dropdown.addOption(opt, opt));
+      dropdown.setValue(this.newCategory);
+      dropdown.onChange((value) => {
+        this.newCategory = value;
+      });
+    });
     new import_obsidian15.Setting(contentEl).setName("Serving Size (g)").setDesc("Enter the amount you actually consumed").addText(
       (text) => text.setValue(this.newServingSize.toString()).onChange((value) => {
         const parsed = parseFloat(value);
@@ -3307,7 +3298,7 @@ var ServingSizeModal = class extends import_obsidian15.Modal {
     const buttonContainer = contentEl.createDiv({ cls: "serving-size-modal-buttons" });
     const saveButton = buttonContainer.createEl("button", { text: "Save", cls: "mod-cta" });
     saveButton.onclick = () => {
-      this.onConfirm(this.newServingSize);
+      this.onConfirm(this.newServingSize, this.newCategory);
       this.close();
     };
     const cancelButton = buttonContainer.createEl("button", { text: "Cancel" });
@@ -3349,10 +3340,11 @@ var ServingSizeModal = class extends import_obsidian15.Modal {
 
 // src/services/TrackerProcessor.ts
 var TrackerProcessor = class {
-  constructor(app, recipeManager, settings) {
+  constructor(app, recipeManager, settings, markdownSettingsService) {
     this.app = app;
     this.recipeManager = recipeManager;
     this.settings = settings;
+    this.markdownSettingsService = markdownSettingsService;
     this.cardRenderer = new TrackerCardRenderer();
     this.tableRenderer = new TrackerTableRenderer();
     this.weeklyRenderer = new WeeklyTrackerRenderer();
@@ -3383,6 +3375,40 @@ var TrackerProcessor = class {
    */
   parseBlock(source) {
     console.info("[Pantry] Parsing block source:\n", source);
+    try {
+      const parsedYaml = (0, import_obsidian16.parseYaml)(source);
+      if (parsedYaml && typeof parsedYaml === "object" && parsedYaml.id) {
+        console.info("[Pantry] Successfully parsed YAML block.");
+        const dateStr = String(parsedYaml.id).trim();
+        let date2 = "";
+        if (dateStr.toLowerCase() === "today" || dateStr === "") {
+          date2 = this.getTodayDateString();
+          console.info(`[Pantry] Parsed 'today' date string into: ${date2}`);
+        } else if (dateStr.toLowerCase() === "week") {
+          date2 = "week";
+          console.info(`[Pantry] Parsed 'week' date string`);
+        } else if (getDateFromWeek(dateStr)) {
+          date2 = dateStr;
+          console.info(`[Pantry] Parsed specific week string: ${date2}`);
+        } else {
+          date2 = dateStr;
+          console.info(`[Pantry] Parsed explicitly provided date string: ${date2}`);
+        }
+        const entries2 = [];
+        if (Array.isArray(parsedYaml.foods)) {
+          for (const food of parsedYaml.foods) {
+            entries2.push({
+              name: food.name,
+              units: food.units,
+              category: food.category || "Uncategorized"
+            });
+          }
+        }
+        return { date: date2, entries: entries2, originalId: dateStr };
+      }
+    } catch (e) {
+      console.info("[Pantry] Not a valid YAML block, falling back to legacy plain-text format.");
+    }
     const lines = source.split("\n").map((l) => l.trim()).filter((l) => l !== "");
     let date = "";
     let originalId = "";
@@ -3414,8 +3440,9 @@ var TrackerProcessor = class {
       const { name, servingSize } = this.parseEntryNameAndServingSize(line);
       entries.push({
         name,
-        servingSize,
-        meal: currentMeal
+        units: servingSize || 100,
+        // Legacy support default units
+        category: currentMeal
       });
     }
     if (!date) {
@@ -3569,7 +3596,7 @@ var TrackerProcessor = class {
             notFound: false,
             originalServingSize,
             servingSize,
-            meal: entry.meal
+            category: entry.category
           });
         } else {
           console.info(`[Pantry] Recipe "${entry.name}" found but has invalid serving size format. Ignoring macros.`);
@@ -3577,7 +3604,7 @@ var TrackerProcessor = class {
             name: entry.name,
             macros: null,
             notFound: false,
-            meal: entry.meal
+            category: entry.category
           });
         }
       } else {
@@ -3585,63 +3612,107 @@ var TrackerProcessor = class {
           name: entry.name,
           macros: null,
           notFound: true,
-          meal: entry.meal
+          category: entry.category
         });
       }
     }
     console.info("[Pantry] Final daily aggregate:", aggregate);
     return { aggregate, recipeDetails };
   }
-  async handleAddRecipesToBlock(source, el, ctx, selectedNames, selectedMeal) {
+  serializeToYaml(data) {
+    let yaml = `id: ${data.originalId}
+`;
+    if (data.entries.length > 0) {
+      yaml += `foods:
+`;
+      for (const entry of data.entries) {
+        yaml += `  - name: ${entry.name}
+`;
+        if (entry.units !== void 0) {
+          yaml += `    units: ${entry.units}
+`;
+        }
+        yaml += `    category: ${entry.category}
+`;
+      }
+    }
+    return yaml;
+  }
+  async handleAddRecipesToBlock(source, el, ctx, selectedNames, selectedCategory) {
+    var _a;
     if (!ctx || !ctx.sourcePath) {
       new import_obsidian16.Notice("Could not determine current file. Please try again.");
       return;
     }
     const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-    if (!(file instanceof import_obsidian16.TFile)) {
-      new import_obsidian16.Notice("Current file not found.");
-      return;
+    if (!(file instanceof import_obsidian16.TFile)) return;
+    const data = this.parseBlock(source);
+    if (!data) return;
+    for (const name of selectedNames) {
+      const recipeFrontmatter = await this.findRecipeByName(name);
+      let defaultUnits = 100;
+      if (recipeFrontmatter) {
+        const parsedSize = parseServingSize((_a = recipeFrontmatter.serving_size) != null ? _a : recipeFrontmatter.default_serving_size);
+        if (parsedSize !== null) {
+          defaultUnits = parsedSize;
+        }
+      }
+      data.entries.push({
+        name,
+        units: defaultUnits,
+        category: selectedCategory
+      });
     }
+    const newYaml = this.serializeToYaml(data).trimEnd();
+    await this.updateBlockContent(file, el, ctx, source, newYaml);
+    new import_obsidian16.Notice(`Added ${selectedNames.length} recipe(s) to tracker.`);
+  }
+  async handleServingSizeUpdate(oldEntryName, newUnits, newCategory, source, el, ctx) {
+    if (!ctx || !ctx.sourcePath) return;
+    const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+    if (!(file instanceof import_obsidian16.TFile)) return;
+    const data = this.parseBlock(source);
+    if (!data) return;
+    let found = false;
+    for (const entry of data.entries) {
+      if (entry.name === oldEntryName) {
+        entry.units = newUnits;
+        entry.category = newCategory;
+        found = true;
+        break;
+      }
+    }
+    if (found) {
+      const newYaml = this.serializeToYaml(data).trimEnd();
+      await this.updateBlockContent(file, el, ctx, source, newYaml);
+      new import_obsidian16.Notice(`Updated serving size and category for ${oldEntryName}.`);
+    } else {
+      new import_obsidian16.Notice("Could not find the entry in the block to update.");
+    }
+  }
+  async handleRemoveRecipe(entryName, source, el, ctx) {
+    if (!ctx || !ctx.sourcePath) return;
+    const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+    if (!(file instanceof import_obsidian16.TFile)) return;
+    const data = this.parseBlock(source);
+    if (!data) return;
+    const initialLength = data.entries.length;
+    data.entries = data.entries.filter((e) => e.name !== entryName);
+    if (data.entries.length < initialLength) {
+      const newYaml = this.serializeToYaml(data).trimEnd();
+      await this.updateBlockContent(file, el, ctx, source, newYaml);
+      new import_obsidian16.Notice(`Removed ${entryName} from tracker.`);
+    } else {
+      new import_obsidian16.Notice("Could not find the entry in the block to remove.");
+    }
+  }
+  async updateBlockContent(file, el, ctx, source, newBlockContent) {
     const content = await this.app.vault.read(file);
     const sectionInfo = ctx.getSectionInfo(el);
     let newContent = "";
-    const blockLines = source.trimEnd().split("\n");
-    let insertIndex = blockLines.length;
-    if (selectedMeal === "Uncategorized") {
-      insertIndex = 0;
-      for (let i = 0; i < blockLines.length; i++) {
-        if (blockLines[i].toLowerCase().startsWith("id:")) {
-          insertIndex = i + 1;
-          break;
-        }
-      }
-      blockLines.splice(insertIndex, 0, ...selectedNames);
-    } else {
-      let mealHeaderIndex = -1;
-      let nextHeaderIndex = -1;
-      for (let i = 0; i < blockLines.length; i++) {
-        const line = blockLines[i].trim();
-        if (line.startsWith("#")) {
-          const headerName = line.replace(/^#+\s*/, "").trim();
-          if (headerName === selectedMeal) {
-            mealHeaderIndex = i;
-          } else if (mealHeaderIndex !== -1 && nextHeaderIndex === -1) {
-            nextHeaderIndex = i;
-          }
-        }
-      }
-      if (mealHeaderIndex !== -1) {
-        insertIndex = nextHeaderIndex !== -1 ? nextHeaderIndex : blockLines.length;
-        blockLines.splice(insertIndex, 0, ...selectedNames);
-      } else {
-        blockLines.push(`## ${selectedMeal}`);
-        blockLines.push(...selectedNames);
-      }
-    }
-    const newBlockContent = blockLines.join("\n");
     if (sectionInfo) {
       const lines = content.split("\n");
-      lines.splice(sectionInfo.lineStart + 1, sectionInfo.lineEnd - sectionInfo.lineStart - 1, ...blockLines);
+      lines.splice(sectionInfo.lineStart + 1, sectionInfo.lineEnd - sectionInfo.lineStart - 1, ...newBlockContent.split("\n"));
       newContent = lines.join("\n");
     } else {
       newContent = content.replace(source.trimEnd(), newBlockContent);
@@ -3651,126 +3722,6 @@ var TrackerProcessor = class {
       }
     }
     await this.app.vault.modify(file, newContent);
-    new import_obsidian16.Notice(`Added ${selectedNames.length} recipe(s) to tracker.`);
-  }
-  async handleServingSizeUpdate(oldEntryName, newServingSize, source, el, ctx) {
-    var _a, _b;
-    if (!ctx || !ctx.sourcePath) {
-      new import_obsidian16.Notice("Could not determine current file. Please try again.");
-      return;
-    }
-    const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-    if (!(file instanceof import_obsidian16.TFile)) {
-      new import_obsidian16.Notice("Current file not found.");
-      return;
-    }
-    const content = await this.app.vault.read(file);
-    const sectionInfo = ctx.getSectionInfo(el);
-    let newContent = "";
-    if (sectionInfo) {
-      const lines = content.split("\n");
-      const blockLines = lines.slice(sectionInfo.lineStart, sectionInfo.lineEnd + 1);
-      let found = false;
-      for (let i = 0; i < blockLines.length; i++) {
-        const line = blockLines[i];
-        if (line.trim().toLowerCase().startsWith("id:")) continue;
-        if (line.trim().startsWith("```")) continue;
-        const { name } = this.parseEntryNameAndServingSize(line.trim());
-        if (name === oldEntryName && !found) {
-          const leadingWhitespace = ((_a = line.match(/^\s*/)) == null ? void 0 : _a[0]) || "";
-          blockLines[i] = `${leadingWhitespace}${oldEntryName} (${newServingSize}g)`;
-          found = true;
-        }
-      }
-      if (found) {
-        lines.splice(sectionInfo.lineStart, sectionInfo.lineEnd - sectionInfo.lineStart + 1, ...blockLines);
-        newContent = lines.join("\n");
-      } else {
-        new import_obsidian16.Notice("Could not find the entry in the block to update.");
-        return;
-      }
-    } else {
-      const lines = source.split("\n");
-      let found = false;
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.trim().toLowerCase().startsWith("id:")) continue;
-        const { name } = this.parseEntryNameAndServingSize(line.trim());
-        if (name === oldEntryName && !found) {
-          const leadingWhitespace = ((_b = line.match(/^\s*/)) == null ? void 0 : _b[0]) || "";
-          lines[i] = `${leadingWhitespace}${oldEntryName} (${newServingSize}g)`;
-          found = true;
-        }
-      }
-      if (found) {
-        const newBlockContent = lines.join("\n");
-        newContent = content.replace(source.trimEnd(), newBlockContent.trimEnd());
-      } else {
-        new import_obsidian16.Notice("Could not find the entry in the block to update.");
-        return;
-      }
-    }
-    await this.app.vault.modify(file, newContent);
-    new import_obsidian16.Notice(`Updated serving size for ${oldEntryName}.`);
-  }
-  async handleRemoveRecipe(entryName, source, el, ctx) {
-    if (!ctx || !ctx.sourcePath) {
-      new import_obsidian16.Notice("Could not determine current file. Please try again.");
-      return;
-    }
-    const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
-    if (!(file instanceof import_obsidian16.TFile)) {
-      new import_obsidian16.Notice("Current file not found.");
-      return;
-    }
-    const content = await this.app.vault.read(file);
-    const sectionInfo = ctx.getSectionInfo(el);
-    let newContent = "";
-    if (sectionInfo) {
-      const lines = content.split("\n");
-      const blockLines = lines.slice(sectionInfo.lineStart, sectionInfo.lineEnd + 1);
-      let foundIndex = -1;
-      for (let i = 0; i < blockLines.length; i++) {
-        const line = blockLines[i];
-        if (line.trim().toLowerCase().startsWith("id:")) continue;
-        if (line.trim().startsWith("```")) continue;
-        const { name } = this.parseEntryNameAndServingSize(line.trim());
-        if (name === entryName) {
-          foundIndex = i;
-          break;
-        }
-      }
-      if (foundIndex !== -1) {
-        blockLines.splice(foundIndex, 1);
-        lines.splice(sectionInfo.lineStart, sectionInfo.lineEnd - sectionInfo.lineStart + 1, ...blockLines);
-        newContent = lines.join("\n");
-      } else {
-        new import_obsidian16.Notice("Could not find the entry in the block to remove.");
-        return;
-      }
-    } else {
-      const lines = source.split("\n");
-      let foundIndex = -1;
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.trim().toLowerCase().startsWith("id:")) continue;
-        const { name } = this.parseEntryNameAndServingSize(line.trim());
-        if (name === entryName) {
-          foundIndex = i;
-          break;
-        }
-      }
-      if (foundIndex !== -1) {
-        lines.splice(foundIndex, 1);
-        const newBlockContent = lines.join("\n");
-        newContent = content.replace(source.trimEnd(), newBlockContent.trimEnd());
-      } else {
-        new import_obsidian16.Notice("Could not find the entry in the block to remove.");
-        return;
-      }
-    }
-    await this.app.vault.modify(file, newContent);
-    new import_obsidian16.Notice(`Removed ${entryName} from tracker.`);
   }
   /**
    * Main entry point for the processor
@@ -3831,16 +3782,19 @@ var TrackerProcessor = class {
         const container = el.createDiv({ cls: "tracker-container" });
         this.cardRenderer.renderWidget(container, data.date, aggregate, this.settings, async () => {
           const allRecipes = await this.recipeManager.getAllRecipes();
-          const categories = await this.recipeManager.getRecipeCategories();
+          const settingsData2 = await this.markdownSettingsService.loadSettings();
+          const categories2 = (settingsData2 == null ? void 0 : settingsData2.categories) || [];
           new RecipeSearchModal(
             this.app,
             allRecipes,
-            categories,
+            categories2,
             async (selectedNames, selectedMeal) => {
               await this.handleAddRecipesToBlock(source, el, ctx, selectedNames, selectedMeal);
             }
           ).open();
         });
+        const settingsData = await this.markdownSettingsService.loadSettings();
+        const categories = (settingsData == null ? void 0 : settingsData.categories) || [];
         this.tableRenderer.renderTable(
           container,
           recipeDetails,
@@ -3856,8 +3810,10 @@ var TrackerProcessor = class {
                 currentServingSize,
                 originalServingSize,
                 detail.macros,
-                async (newServingSize) => {
-                  await this.handleServingSizeUpdate(detail.name, newServingSize, source, el, ctx);
+                detail.category || "Uncategorized",
+                categories,
+                async (newServingSize, newCategory) => {
+                  await this.handleServingSizeUpdate(detail.name, newServingSize, newCategory, source, el, ctx);
                 }
               ).open();
             }
@@ -3878,7 +3834,7 @@ var TrackerProcessor = class {
 
 // src/processors/tracker/index.ts
 function registerTrackerProcessor(plugin) {
-  const processor = new TrackerProcessor(plugin.app, plugin.recipeManager, plugin.settings);
+  const processor = new TrackerProcessor(plugin.app, plugin.recipeManager, plugin.settings, plugin.markdownSettingsService);
   plugin.registerMarkdownCodeBlockProcessor("tracker", async (source, el, ctx) => {
     await processor.process(source, el, ctx);
   });
@@ -6945,6 +6901,7 @@ var MarkdownSettingsService = class {
     }
   }
   async loadSettings() {
+    console.log("[MarkdownSettingsService] Reading settings from:", this.getSettingsFilePath());
     const filePath = this.getSettingsFilePath();
     const file = this.app.vault.getAbstractFileByPath(filePath);
     if (!(file instanceof import_obsidian19.TFile)) {
@@ -6980,6 +6937,7 @@ categories:
     return null;
   }
   async saveSettings(newSettingsData) {
+    console.log("[MarkdownSettingsService] Writing settings to:", this.getSettingsFilePath(), "Data:", newSettingsData);
     const filePath = this.getSettingsFilePath();
     let file = this.app.vault.getAbstractFileByPath(filePath);
     const yamlString = dump(newSettingsData);

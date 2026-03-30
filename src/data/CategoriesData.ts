@@ -1,6 +1,6 @@
 export interface CategoryItemBase {
     name: string;
-    category: string;
+    category?: string;
 }
 
 export interface CategoryItemUnits extends CategoryItemBase {
