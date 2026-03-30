@@ -70,18 +70,40 @@ export class WeeklyPlannerRenderer {
 
             // Macro bars
             macros.forEach(({ key, label, unit, total, target }) => {
+                const isOverload = total > target;
                 const pct = Math.min((total / target) * 100, 100);
-                const colour = pct >= 80 ? '#1D9E75' : pct >= 50 ? '#BA7517' : '#C0392B';
+                const colour = isOverload ? '#D4AC0D' : (pct >= 80 ? '#1D9E75' : pct >= 50 ? '#BA7517' : '#C0392B');
 
                 const row = container.createDiv({ cls: 'macro-bar-row' });
                 row.createSpan({ text: label, cls: 'macro-bar-label' });
-                const fill = row.createDiv({ cls: 'macro-bar-track' }).createDiv({ cls: 'macro-bar-fill' });
+                const track = row.createDiv({ cls: 'macro-bar-track' });
+                const fill = track.createDiv({ cls: 'macro-bar-fill' });
+                
                 fill.style.width = `${pct}%`;
-                fill.style.background = colour;
-                row.createSpan({
+                
+                if (isOverload) {
+                    fill.style.background = `repeating-linear-gradient(
+                        45deg,
+                        ${colour},
+                        ${colour} 10px,
+                        #F1C40F 10px,
+                        #F1C40F 20px
+                    )`;
+                } else {
+                    fill.style.background = colour;
+                }
+                
+                const valueSpan = row.createSpan({
                     text: `${Math.round(total)}${unit} / ${Math.round(target)}${unit}`,
                     cls: 'macro-bar-value'
                 });
+                
+                if (isOverload) {
+                    const overAmount = Math.round(total - target);
+                    valueSpan.setText(`${Math.round(total)}${unit} / ${Math.round(target)}${unit} (+${overAmount}${unit})`);
+                    valueSpan.style.color = '#D4AC0D';
+                    valueSpan.style.fontWeight = 'bold';
+                }
             });
         } else {
             container.createEl("p", { text: "No matched recipes found to calculate balance." });
@@ -159,14 +181,13 @@ export class WeeklyPlannerRenderer {
             const itemCount = categoryFoods.length;
             
             const detailsEl = list.createEl('details');
-            detailsEl.setAttribute('open', 'true');
+            // Details are closed by default (no 'open' attribute)
             detailsEl.style.marginTop = '12px';
             
             const summaryEl = detailsEl.createEl('summary', { text: `${category} (${itemCount} item${itemCount !== 1 ? 's' : ''})` });
             summaryEl.style.marginBottom = '6px';
             summaryEl.style.color = 'var(--text-muted)';
             summaryEl.style.fontSize = '0.9em';
-            summaryEl.style.textTransform = 'uppercase';
             summaryEl.style.letterSpacing = '0.05em';
             summaryEl.style.borderBottom = '1px solid var(--background-modifier-border)';
             summaryEl.style.paddingBottom = '4px';

@@ -38,12 +38,7 @@ export class MarkdownSettingsService {
         const file = this.app.vault.getAbstractFileByPath(filePath);
 
         if (!(file instanceof TFile)) {
-            // Ensure folder exists and create default file
-            await this.ensureFolder(normalizePath(`${this.settings.recipeFolder}/Data`));
-            const defaultContent = `My food settings data\n\n\`\`\`yaml\ncategories:\n  - breakfast\n  - mains\n  - sides\n\`\`\`\n`;
-            await this.app.vault.create(filePath, defaultContent);
-            
-            // Re-read or just return the default parse
+            // Return default settings if file doesn't exist yet
             return {
                 categories: ['breakfast', 'mains', 'sides']
             };

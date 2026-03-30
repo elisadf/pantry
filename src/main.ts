@@ -35,10 +35,8 @@ export default class PantryPlugin extends Plugin {
         this.noteManager = new WeeklyNoteManager(this.app, this.settings);
         this.markdownSettingsService = new MarkdownSettingsService(this.app, this.settings);
 
-        // Ensure folders exist
+        // Load markdown settings (without eager folder creation)
         this.app.workspace.onLayoutReady(async () => {
-            await this.recipeManager.ensureFolderStructure();
-            await this.noteManager.ensureFolder();
             await this.markdownSettingsService.loadSettings();
         });
 
