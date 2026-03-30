@@ -86,13 +86,13 @@ export default class PantryPlugin extends Plugin {
             id: "create-weekly-plan",
             name: "Create Weekly Plan",
             callback: () => {
-                new WeeklyPlannerV2Modal(this.app, this.recipeManager, this.noteManager, this.settings).open();
+                new WeeklyPlannerV2Modal(this.app, this.recipeManager, this.noteManager, this.settings, this.markdownSettingsService).open();
             }
         });
 
         // Ribbon Icons
         this.addRibbonIcon("calendar-check", "Pantry", () => {
-            new WeeklyPlannerV2Modal(this.app, this.recipeManager, this.noteManager, this.settings).open();
+            new WeeklyPlannerV2Modal(this.app, this.recipeManager, this.noteManager, this.settings, this.markdownSettingsService).open();
         });
         
         this.addRibbonIcon("chef-hat", "Add Food/Recipe", () => {
@@ -104,7 +104,7 @@ export default class PantryPlugin extends Plugin {
 
         const weeklyPlannerRenderer = new WeeklyPlannerRenderer();
         this.registerMarkdownCodeBlockProcessor('weeklyplannerV2', async (source, el, ctx) => {
-            await weeklyPlannerRenderer.render(source, el, ctx, this.app, this.recipeManager, this.settings);
+            await weeklyPlannerRenderer.render(source, el, ctx, this.app, this.recipeManager, this.settings, this.markdownSettingsService);
         });
     }
 

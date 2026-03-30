@@ -1,18 +1,21 @@
-import { App, Modal, Notice } from "obsidian";
+import { App, Modal, Notice, setIcon } from "obsidian";
 import { RecipeFileManager, FoodItemFrontmatter } from "../../services/RecipeFileManager";
 import { WeeklyNoteManager } from "../../services/WeeklyNoteManager";
 import { calculateWeeklyBalance, generateWeeklySummaryCodeblock } from "../../calculators/weeklyBalance";
 import { PantryPluginSettings } from "../../settings";
-import { WeeklySchedulerModal } from "./WeeklySchedulerModal";
-import { CategoryItemServings } from "../../data/CategoriesData";
+import { WeeklyFoodItem } from "../../data/WeeklyPlannerData";
+import { EditWeeklyServingModal } from "./EditWeeklyServingModal";
+import { MarkdownSettingsService } from "../../services/MarkdownSettingsService";
 
 export class WeeklyPlannerV2Modal extends Modal {
     private recipeManager: RecipeFileManager;
     private noteManager: WeeklyNoteManager;
     private settings: PantryPluginSettings;
+    private markdownSettingsService: MarkdownSettingsService;
     
     private allRecipes: { path: string; frontmatter: FoodItemFrontmatter }[] = [];
-    private selectedRecipes: Set<string> = new Set();
+    private selectedRecipes: Map<string, { servings: number; category: string }> = new Map();
+
     
     private categories: string[] = [];
     private weekString: string;
@@ -23,12 +26,14 @@ export class WeeklyPlannerV2Modal extends Modal {
         app: App, 
         recipeManager: RecipeFileManager, 
         noteManager: WeeklyNoteManager,
-        settings: PantryPluginSettings
+        settings: PantryPluginSettings,
+        markdownSettingsService: MarkdownSettingsService
     ) {
         super(app);
         this.recipeManager = recipeManager;
         this.noteManager = noteManager;
         this.settings = settings;
+        this.markdownSettingsService = markdownSettingsService;
         this.weekString = this.getWeekString(this.weekOffset);
     }
 
@@ -51,7 +56,8 @@ export class WeeklyPlannerV2Modal extends Modal {
 
         try {
             this.allRecipes = await this.recipeManager.getAllRecipes();
-            this.categories = await this.recipeManager.getRecipeCategories();
+            const settingsData = await this.markdownSettingsService.loadSettings();
+            this.categories = settingsData?.categories || [];
         } catch (e) {
             new Notice("Failed to load recipes");
         } finally {
@@ -147,99 +153,12 @@ export class WeeklyPlannerV2Modal extends Modal {
 
         this.renderList(resultsContainer, this.allRecipes);
 
-        // Right side: Summary
-        const summaryArea = layout.createDiv({ cls: "planner-summary" });
-        summaryArea.createEl("h3", { text: "Balance Summary" });
-        this.summaryContainer = summaryArea.createDiv("balance-summary");
-        
-        this.updateSummary();
-
         const buttonGroup = contentEl.createDiv("button-group");
-        const createBtn = buttonGroup.createEl("button", { text: "Create Weekly Note V2", cls: "primary" });
+        const createBtn = buttonGroup.createEl("button", { text: "Create Weekly Plan", cls: "primary" });
         createBtn.onclick = () => this.handleCreate();
 
         const cancelBtn = buttonGroup.createEl("button", { text: "Cancel", cls: "secondary" });
         cancelBtn.onclick = () => this.close();
-    }
-
-    private summaryContainer: HTMLElement;
-
-    private updateSummary() {
-        if (!this.summaryContainer) return;
-        this.summaryContainer.empty();
-
-        const selectedDocs = this.allRecipes
-            .filter(r => this.selectedRecipes.has(r.path))
-            .map(r => ({ frontmatter: r.frontmatter, servings: 1 }));
-
-        const stats = calculateWeeklyBalance(
-            selectedDocs,
-            this.settings.dailyCalorieTarget,
-            this.settings.dailyProteinTarget,
-            this.settings.dailyFatTarget,
-            this.settings.dailyCarbsTarget,
-            this.settings.fibreTargetPerDay
-        );
-
-        const statusClass = `status-${stats.status}`;
-        const statusText = stats.status === "green" ? "Good" : stats.status === "amber" ? "Needs Review" : "Unbalanced";
-
-        const calUnit = this.settings.energyUnit === 'kcal' ? 'kcal' : 'kJ';
-        const calMultiplier = this.settings.energyUnit === 'kcal' ? 1 : 4.184;
-
-        const headerRow = this.summaryContainer.createDiv("stat");
-        headerRow.createEl("strong", { text: "Overall Status:" });
-        headerRow.createEl("strong", { text: statusText, cls: statusClass });
-
-        this.summaryContainer.createEl("hr");
-
-        this.renderBar(this.summaryContainer, '🔥 Energy', stats.percentages.calories, stats.totalCalories * calMultiplier, stats.weeklyTargets.calories * calMultiplier, calUnit);
-        this.renderBar(this.summaryContainer, '💪 Protein', stats.percentages.protein, stats.totalProtein, stats.weeklyTargets.protein, 'g');
-        this.renderBar(this.summaryContainer, '🥑 Fat', stats.percentages.fat, stats.totalFat, stats.weeklyTargets.fat, 'g');
-        this.renderBar(this.summaryContainer, '🍞 Carbs', stats.percentages.carbs, stats.totalCarbs, stats.weeklyTargets.carbs, 'g');
-        this.renderBar(this.summaryContainer, '🌾 Fibre', stats.percentages.fibre, stats.totalFibre, stats.weeklyTargets.fibre, 'g');
-
-        const gaps = (Object.entries(stats.percentages) as [string, number][])
-            .filter(([_, pct]) => pct < 80)
-            .map(([key]) => key);
-
-        if (gaps.length > 0) {
-            this.summaryContainer.createDiv({
-                text: `⚠️ ${gaps.join(' and ')} under target`,
-                cls: 'gap-notice'
-            });
-
-            // Top 3 unselected recipes ranked by the most deficient macro
-            const primaryGap = gaps[0];
-            const fieldMap: Record<string, string> = {
-                calories: 'calories', protein: 'protein', fat: 'fat', carbs: 'carbs', fibre: 'fibre'
-            };
-            const field = fieldMap[primaryGap];
-            const suggestions = this.allRecipes
-                .filter(r => !this.selectedRecipes.has(r.path))
-                .sort((a, b) =>
-                    parseFloat((b.frontmatter as any)[field] ?? 0) -
-                    parseFloat((a.frontmatter as any)[field] ?? 0)
-                )
-                .slice(0, 3);
-
-            if (suggestions.length > 0) {
-                const wrap = this.summaryContainer.createDiv({ cls: 'gap-suggestions' });
-                wrap.createEl('small', { text: `Add for ${primaryGap}:` });
-                suggestions.forEach(r => {
-                    let name = r.frontmatter.name as string | undefined;
-                    if (!name) {
-                        const parts = r.path.split('/');
-                        name = parts[parts.length - 1].replace(/\.md$/i, '');
-                    }
-                    const pill = wrap.createEl('button', { text: name, cls: 'suggestion-pill' });
-                    pill.onclick = () => {
-                        this.selectedRecipes.add(r.path);
-                        this.display();
-                    };
-                });
-            }
-        }
     }
 
     private async handleCreate() {
@@ -255,32 +174,37 @@ export class WeeklyPlannerV2Modal extends Modal {
                 const parts = r.path.split('/');
                 name = parts[parts.length - 1].replace(/\.md$/i, '');
             }
-            return { path: r.path, name, frontmatter: r.frontmatter };
+            const selectionData = this.selectedRecipes.get(r.path)!;
+            return { 
+                path: r.path, 
+                name, 
+                frontmatter: r.frontmatter,
+                servings: selectionData.servings,
+                category: selectionData.category
+            };
         });
 
-        new WeeklySchedulerModal(this.app, recipesForScheduler, this.settings, async (schedules: any[]) => {
-            const stats = calculateWeeklyBalance(
-                schedules.map(s => ({ frontmatter: s.frontmatter, servings: s.servings })),
-                this.settings.dailyCalorieTarget,
-                this.settings.dailyProteinTarget,
-                this.settings.dailyFatTarget,
-                this.settings.dailyCarbsTarget,
-                this.settings.fibreTargetPerDay
-            );
+        const stats = calculateWeeklyBalance(
+            recipesForScheduler.map(s => ({ frontmatter: s.frontmatter, servings: s.servings })),
+            this.settings.dailyCalorieTarget,
+            this.settings.dailyProteinTarget,
+            this.settings.dailyFatTarget,
+            this.settings.dailyCarbsTarget,
+            this.settings.fibreTargetPerDay
+        );
 
-            try {
-                const path = await this.noteManager.createWeeklyNoteV2(
-                    this.weekString,
-                    schedules.map(s => ({ name: s.name, path: s.path, servings: s.servings })) as (CategoryItemServings & { path: string })[],
-                    '',
-                    generateWeeklySummaryCodeblock(stats, this.settings.energyUnit)
-                );
-                new Notice(`Created weekly plan v2: ${path}`);
-                this.close();
-            } catch (error: any) {
-                new Notice(`Error creating note: ${error.message}`);
-            }
-        }).open();
+        try {
+            const path = await this.noteManager.createWeeklyNoteV2(
+                this.weekString,
+                recipesForScheduler as (WeeklyFoodItem & { path: string })[],
+                '',
+                generateWeeklySummaryCodeblock(stats, this.settings.energyUnit)
+            );
+            new Notice(`Created weekly plan: ${path}`);
+            this.close();
+        } catch (error: any) {
+            new Notice(`Error creating note: ${error.message}`);
+        }
     }
 
     onClose() {
@@ -344,13 +268,6 @@ export class WeeklyPlannerV2Modal extends Modal {
             const cb = item.createEl('input', { type: 'checkbox' });
             cb.checked = isSelected;
             cb.onclick = e => e.stopPropagation();
-            cb.onchange = e => {
-                (e.target as HTMLInputElement).checked
-                    ? this.selectedRecipes.add(recipe.path)
-                    : this.selectedRecipes.delete(recipe.path);
-                this.updateSummary();
-            };
-
             const info = item.createDiv({ attr: { style: 'flex:1;' } });
             info.createEl('div', { text: name, cls: 'pantry-search-result-name' });
             info.createEl('div', {
@@ -358,13 +275,71 @@ export class WeeklyPlannerV2Modal extends Modal {
                 attr: { style: 'font-size:12px; color:var(--text-muted);' }
             });
 
+            // Pre-create the edit container for all items, but hide it if unselected
+            const selectionData = this.selectedRecipes.get(recipe.path) || { servings: 1, category };
+            const editContainer = item.createDiv({ attr: { style: 'display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted); margin-right:8px;' } });
+            editContainer.style.display = isSelected ? 'flex' : 'none';
+            
+            const servingsSpan = editContainer.createSpan({ text: `×${selectionData.servings} (${selectionData.category})` });
+            
+            const editBtn = editContainer.createSpan({ cls: 'tracker-table__edit-icon' });
+            editBtn.style.cursor = 'pointer';
+            setIcon(editBtn, 'pencil');
+            editBtn.onclick = (e) => {
+                e.stopPropagation();
+                // Get fresh selection data in case it changed
+                const currentData = this.selectedRecipes.get(recipe.path)!;
+                const weeklyItem: WeeklyFoodItem = {
+                    name: name!,
+                    servings: currentData.servings,
+                    category: currentData.category
+                };
+                
+                new EditWeeklyServingModal(
+                    this.app,
+                    weeklyItem,
+                    recipe.frontmatter,
+                    this.markdownSettingsService,
+                    this.settings,
+                    (newServings, newCategory) => {
+                        if (newServings === 0) {
+                            this.selectedRecipes.delete(recipe.path);
+                            cb.checked = false;
+                            item.classList.remove('is-selected');
+                            editContainer.style.display = 'none';
+                        } else {
+                            this.selectedRecipes.set(recipe.path, { servings: newServings, category: newCategory });
+                            servingsSpan.innerText = `×${newServings} (${newCategory})`;
+                        }
+                    }
+                ).open();
+            };
+
+            const toggleSelection = () => {
+                if (this.selectedRecipes.has(recipe.path)) {
+                    this.selectedRecipes.delete(recipe.path);
+                    cb.checked = false;
+                    item.classList.remove('is-selected');
+                    editContainer.style.display = 'none';
+                } else {
+                    this.selectedRecipes.set(recipe.path, { servings: 1, category });
+                    cb.checked = true;
+                    item.classList.add('is-selected');
+                    servingsSpan.innerText = `×1 (${category})`;
+                    editContainer.style.display = 'flex';
+                }
+            };
+
+            cb.onchange = e => {
+                toggleSelection();
+                // We must invert the check state because toggleSelection() flips it based on the map
+                // but cb.onchange triggers after the checkbox state has already changed natively.
+                // It's cleaner to let toggleSelection manage the true state:
+                cb.checked = this.selectedRecipes.has(recipe.path); 
+            };
+
             item.onclick = () => {
-                this.selectedRecipes.has(recipe.path)
-                    ? this.selectedRecipes.delete(recipe.path)
-                    : this.selectedRecipes.add(recipe.path);
-                cb.checked = this.selectedRecipes.has(recipe.path);
-                item.classList.toggle('is-selected', this.selectedRecipes.has(recipe.path));
-                this.updateSummary();
+                toggleSelection();
             };
         });
     }

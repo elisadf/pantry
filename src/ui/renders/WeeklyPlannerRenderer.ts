@@ -12,7 +12,8 @@ export class WeeklyPlannerRenderer {
         ctx: MarkdownPostProcessorContext,
         app: App,
         recipeManager: any,
-        settings: PantryPluginSettings
+        settings: PantryPluginSettings,
+        markdownSettingsService: any
     ): Promise<void> {
         const data = parseYaml(source) as WeeklyPlannerData;
 
@@ -103,11 +104,11 @@ export class WeeklyPlannerRenderer {
         
         const editBtn = headerRow.createEl('button', { text: 'Edit Plan', cls: 'pantry-btn pantry-btn-secondary' });
         editBtn.onclick = async () => {
-            const categories = await recipeManager.getRecipeCategories();
             new FoodListEditorModal(
                 app, 
                 recipeManager, 
                 settings,
+                markdownSettingsService,
                 data.foods.map(f => ({ name: f.name, servings: f.servings || 1, category: f.category })),
                 async (updatedFoods) => {
                     const file = app.vault.getAbstractFileByPath(ctx.sourcePath);
@@ -241,7 +242,6 @@ export class WeeklyPlannerRenderer {
                 setIcon(editBtn, 'pencil');
 
                 editBtn.onclick = async () => {
-                    const categories = await recipeManager.getRecipeCategories();
                     const recipe = allRecipes.find((r: any) => 
                         r.frontmatter.name === item.name || 
                         r.path.endsWith(item.name + '.md') ||
@@ -253,7 +253,7 @@ export class WeeklyPlannerRenderer {
                             app,
                             { name: item.name, servings: item.servings || 1, category: item.category },
                             recipe.frontmatter,
-                            categories, // Categories
+                            markdownSettingsService, // Categories
                             settings,
                             (newServings, newCategory) => updateServing(newServings, newCategory)
                         ).open();

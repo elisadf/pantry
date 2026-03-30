@@ -3,12 +3,13 @@ import { FoodItemFrontmatter } from "../../services/RecipeFileManager";
 import { PantryPluginSettings } from "../../settings";
 import { CategoryItemServings } from "../../data/CategoriesData";
 import { calculateMacros } from "../../calculators/macroCalculators";
+import { MarkdownSettingsService } from "../../services/MarkdownSettingsService";
 
 export class EditWeeklyServingModal extends Modal {
     private item: CategoryItemServings;
     private frontmatter: FoodItemFrontmatter;
     private newServings: number;
-    private categories: string[];
+    private markdownSettingsService: MarkdownSettingsService;
     private selectedCategory: string;
     private onConfirm: (newServings: number, newCategory: string) => void;
     private previewContainer: HTMLElement;
@@ -18,7 +19,7 @@ export class EditWeeklyServingModal extends Modal {
         app: App,
         item: CategoryItemServings,
         frontmatter: FoodItemFrontmatter,
-        categories: string[],
+        markdownSettingsService: MarkdownSettingsService,
         settings: PantryPluginSettings,
         onConfirm: (newServings: number, newCategory: string) => void
     ) {
@@ -26,7 +27,7 @@ export class EditWeeklyServingModal extends Modal {
         this.item = item;
         this.frontmatter = frontmatter;
         this.newServings = item.servings;
-        this.categories = categories;
+        this.markdownSettingsService = markdownSettingsService;
 
         let initialCategory = (this.item.category || this.frontmatter.category || 'Uncategorized').trim();
         initialCategory = initialCategory.charAt(0).toUpperCase() + initialCategory.slice(1);
@@ -36,7 +37,7 @@ export class EditWeeklyServingModal extends Modal {
         this.onConfirm = onConfirm;
     }
 
-    onOpen() {
+    async onOpen() {
         const { contentEl } = this;
         contentEl.empty();
         
@@ -71,11 +72,14 @@ export class EditWeeklyServingModal extends Modal {
         this.renderPreview();
 
         // Add Category dropdown
+        const settingsData = await this.markdownSettingsService.loadSettings();
+        const categories: string[] = settingsData?.categories || [];
+
         new Setting(contentEl)
             .setName("Category")
             .setDesc("The section this recipe belongs to in your plan.")
             .addDropdown(dropdown => {
-                const uniqueCategories = new Set(this.categories.map(c => c.charAt(0).toUpperCase() + c.slice(1)));
+                const uniqueCategories = new Set(categories.map((c: string) => c.charAt(0).toUpperCase() + c.slice(1)));
                 uniqueCategories.add('Uncategorized');
                 
                 uniqueCategories.forEach(cat => {

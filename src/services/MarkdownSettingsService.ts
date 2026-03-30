@@ -30,7 +30,10 @@ export class MarkdownSettingsService {
     }
 
     public async loadSettings(): Promise<any> {
-        console.log("[MarkdownSettingsService] Reading settings from:", this.getSettingsFilePath());
+        console.log("====================================================");
+        console.log("[MarkdownSettingsService] 📖 READING SETTINGS");
+        console.log("[MarkdownSettingsService] File Path:", this.getSettingsFilePath());
+        console.log("====================================================");
         const filePath = this.getSettingsFilePath();
         const file = this.app.vault.getAbstractFileByPath(filePath);
 
@@ -66,7 +69,11 @@ export class MarkdownSettingsService {
     }
 
     public async saveSettings(newSettingsData: any): Promise<void> {
-        console.log("[MarkdownSettingsService] Writing settings to:", this.getSettingsFilePath(), "Data:", newSettingsData);
+        console.log("====================================================");
+        console.log("[MarkdownSettingsService] 💾 WRITING SETTINGS");
+        console.log("[MarkdownSettingsService] File Path:", this.getSettingsFilePath());
+        console.log("[MarkdownSettingsService] Data:", newSettingsData);
+        console.log("====================================================");
         const filePath = this.getSettingsFilePath();
         let file = this.app.vault.getAbstractFileByPath(filePath);
 
