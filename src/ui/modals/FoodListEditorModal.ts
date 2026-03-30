@@ -2,6 +2,7 @@ import { App, Modal, Notice, setIcon } from 'obsidian';
 import { RecipeFileManager, FoodItemFrontmatter } from '../../services/RecipeFileManager';
 import { PantryPluginSettings } from '../../settings';
 import { EditWeeklyServingModal } from './EditWeeklyServingModal';
+import { MarkdownSettingsService } from '../../services/MarkdownSettingsService';
 
 export interface PlannedFoodItem {
     name: string;
@@ -12,6 +13,7 @@ export interface PlannedFoodItem {
 export class FoodListEditorModal extends Modal {
     private recipeManager: RecipeFileManager;
     private settings: PantryPluginSettings;
+    private markdownSettingsService: MarkdownSettingsService;
     private currentFoods: PlannedFoodItem[];
     private onSave: (foods: PlannedFoodItem[]) => void;
     
@@ -26,12 +28,14 @@ export class FoodListEditorModal extends Modal {
         app: App,
         recipeManager: RecipeFileManager,
         settings: PantryPluginSettings,
+        markdownSettingsService: MarkdownSettingsService,
         currentFoods: PlannedFoodItem[],
         onSave: (foods: PlannedFoodItem[]) => void
     ) {
         super(app);
         this.recipeManager = recipeManager;
         this.settings = settings;
+        this.markdownSettingsService = markdownSettingsService;
         // Deep copy to avoid mutating the original array directly before saving
         this.currentFoods = currentFoods.map(f => ({ ...f }));
         this.onSave = onSave;
@@ -45,7 +49,8 @@ export class FoodListEditorModal extends Modal {
 
         try {
             this.allRecipes = await this.recipeManager.getAllRecipes();
-            this.categories = await this.recipeManager.getRecipeCategories();
+            const settingsData = await this.markdownSettingsService.loadSettings();
+            this.categories = settingsData?.categories || [];
         } catch (e) {
             new Notice("Failed to load recipes");
         } finally {
@@ -260,7 +265,7 @@ export class FoodListEditorModal extends Modal {
                         this.app,
                         { name: item.name, servings: item.servings, category: item.category },
                         recipe.frontmatter,
-                        this.categories, // Pass the actual categories here
+                        this.markdownSettingsService,
                         this.settings,
                         (newServings, newCategory) => {
                             if (newServings <= 0) {
