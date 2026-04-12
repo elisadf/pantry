@@ -563,11 +563,11 @@ var init_ManualFoodEntryModal = __esm({
         const nutritionGrid = formContainer.createDiv({ cls: "pantry-form-grid" });
         const energyContainer = formContainer.createDiv({ cls: "pantry-form-grid" });
         const caloriesGroup = energyContainer.createDiv({ cls: "pantry-form-row" });
-        caloriesGroup.createEl("label", { text: "Calories (kcal)", cls: "pantry-form-label required" });
+        caloriesGroup.createEl("label", { text: "Calories (kcal)", cls: "pantry-form-label" });
         this.caloriesInput = caloriesGroup.createEl("input", {
           type: "number",
           cls: "pantry-form-input",
-          attr: { placeholder: "0", min: "0", step: "0.1", required: "true" }
+          attr: { placeholder: "0", min: "0", step: "0.1" }
         });
         const kjGroup = energyContainer.createDiv({ cls: "pantry-form-row" });
         kjGroup.createEl("label", { text: "Energy (kJ)", cls: "pantry-form-label" });
@@ -600,18 +600,32 @@ var init_ManualFoodEntryModal = __esm({
           attr: { placeholder: "0", min: "0", step: "0.1", required: "true" }
         });
         const fibreGroup = macrosGrid.createDiv({ cls: "pantry-form-row" });
-        fibreGroup.createEl("label", { text: "Fibre (g)", cls: "pantry-form-label required" });
+        fibreGroup.createEl("label", { text: "Fibre (g)", cls: "pantry-form-label" });
         this.fibreInput = fibreGroup.createEl("input", {
           type: "number",
           cls: "pantry-form-input",
-          attr: { placeholder: "0", min: "0", step: "0.1", required: "true" }
+          attr: { placeholder: "0", min: "0", step: "0.1" }
         });
+        this.setupMacroToCaloriesConversion();
         const infoDiv = formContainer.createDiv({ cls: "pantry-form-row" });
         infoDiv.createEl("p", { text: "* Required fields", cls: "pantry-form-desc", attr: { style: "font-style: italic;" } });
         infoDiv.createEl("p", { text: "Energy values are automatically converted between kcal and kJ (1 kcal = 4.184 kJ)", cls: "pantry-form-desc" });
         infoDiv.createEl("p", { text: "Tip: Press Shift+Enter to add & continue", cls: "pantry-form-desc", attr: { style: "background: var(--background-secondary); padding: 8px; border-radius: 4px; text-align: center;" } });
         this.createActionButtons(formContainer);
         this.foodNameInput.focus();
+      }
+      setupMacroToCaloriesConversion() {
+        const updateCalories = () => {
+          const protein = parseFloat(this.proteinInput.value) || 0;
+          const carbs = parseFloat(this.carbsInput.value) || 0;
+          const fat = parseFloat(this.fatInput.value) || 0;
+          const totalCalories = protein * 4 + carbs * 4 + fat * 9;
+          this.caloriesInput.value = totalCalories.toFixed(1);
+          this.caloriesInput.dispatchEvent(new Event("input"));
+        };
+        this.component.registerDomEvent(this.proteinInput, "input", updateCalories);
+        this.component.registerDomEvent(this.carbsInput, "input", updateCalories);
+        this.component.registerDomEvent(this.fatInput, "input", updateCalories);
       }
       setupEnergyConversion() {
         this.component.registerDomEvent(this.caloriesInput, "input", () => {
@@ -682,11 +696,11 @@ var init_ManualFoodEntryModal = __esm({
         const errors = [];
         if (!this.foodNameInput.value.trim()) errors.push("Food name is required.");
         if (isNaN(parseFloat(this.servingSizeInput.value))) errors.push("Serving size is invalid.");
-        if (isNaN(parseFloat(this.caloriesInput.value))) errors.push("Calories are invalid.");
+        if (this.caloriesInput.value && isNaN(parseFloat(this.caloriesInput.value))) errors.push("Calories are invalid.");
         if (isNaN(parseFloat(this.proteinInput.value))) errors.push("Protein is invalid.");
         if (isNaN(parseFloat(this.fatInput.value))) errors.push("Fat is invalid.");
         if (isNaN(parseFloat(this.carbsInput.value))) errors.push("Carbohydrates are invalid.");
-        if (isNaN(parseFloat(this.fibreInput.value))) errors.push("Fibre is invalid.");
+        if (this.fibreInput.value && isNaN(parseFloat(this.fibreInput.value))) errors.push("Fibre is invalid.");
         const foodName = this.foodNameInput.value.trim();
         const folderPath = (0, import_obsidian8.normalizePath)(this.plugin.settings.recipeFolder);
         const fileName = `${sanitiseFileName(foodName)}.md`;
@@ -2435,9 +2449,11 @@ var TrackerCardRenderer = class {
       const year = parts[0];
       const monthIndex = parseInt(parts[1], 10) - 1;
       const day = parseInt(parts[2], 10);
-      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const monthStr = months[monthIndex] || parts[1];
-      return `${day} ${monthStr} ${year}`;
+      if (!isNaN(monthIndex) && !isNaN(day) && year.length === 4) {
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthStr = months[monthIndex] || parts[1];
+        return `${day} ${monthStr} ${year}`;
+      }
     }
     return dateStr;
   }
@@ -3004,9 +3020,11 @@ var WeeklyTrackerRenderer = class {
       const year = parts[0];
       const monthIndex = parseInt(parts[1], 10) - 1;
       const day = parseInt(parts[2], 10);
-      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      const monthStr = months[monthIndex] || parts[1];
-      return `${day} ${monthStr} ${year}`;
+      if (!isNaN(monthIndex) && !isNaN(day) && year.length === 4) {
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthStr = months[monthIndex] || parts[1];
+        return `${day} ${monthStr} ${year}`;
+      }
     }
     return dateStr;
   }
@@ -3536,7 +3554,22 @@ var TrackerProcessor = class {
   parseDate(dateStr) {
     const parts = dateStr.split("-");
     if (parts.length === 3) {
-      return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      const part0 = parseInt(parts[0]);
+      const part1 = parseInt(parts[1]);
+      const part2 = parseInt(parts[2]);
+      if (!isNaN(part0) && !isNaN(part1) && !isNaN(part2) && parts[0].length === 4) {
+        return new Date(part0, part1 - 1, part2);
+      }
+    }
+    if (typeof window !== "undefined" && window.moment) {
+      const m = window.moment(dateStr);
+      if (m.isValid()) {
+        return new Date(m.year(), m.month(), m.date());
+      }
+    }
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      return date;
     }
     return null;
   }
@@ -3567,7 +3600,10 @@ var TrackerProcessor = class {
         if (!blockDate) continue;
         if (!isDateInWeek(blockDate, targetDate)) continue;
         const { aggregate } = await this.calculateDailyAggregate(data);
-        const dateKey = data.date;
+        const yyyy = blockDate.getFullYear();
+        const mm = String(blockDate.getMonth() + 1).padStart(2, "0");
+        const dd = String(blockDate.getDate()).padStart(2, "0");
+        const dateKey = `${yyyy}-${mm}-${dd}`;
         if (!dailyAggregates.has(dateKey)) {
           dailyAggregates.set(dateKey, { aggregate: { calories: 0, protein: 0, fat: 0, carbs: 0, fibre: 0 }, files: [] });
         }

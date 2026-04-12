@@ -85,11 +85,11 @@ export class ManualFoodEntryModal extends Modal {
         const energyContainer = formContainer.createDiv({ cls: 'pantry-form-grid' });
         
         const caloriesGroup = energyContainer.createDiv({ cls: 'pantry-form-row' });
-        caloriesGroup.createEl('label', { text: 'Calories (kcal)', cls: 'pantry-form-label required' });
+        caloriesGroup.createEl('label', { text: 'Calories (kcal)', cls: 'pantry-form-label' });
         this.caloriesInput = caloriesGroup.createEl('input', {
             type: 'number',
             cls: 'pantry-form-input',
-            attr: { placeholder: '0', min: '0', step: '0.1', required: 'true' }
+            attr: { placeholder: '0', min: '0', step: '0.1' }
         });
 
         const kjGroup = energyContainer.createDiv({ cls: 'pantry-form-row' });
@@ -131,12 +131,14 @@ export class ManualFoodEntryModal extends Modal {
         });
 
         const fibreGroup = macrosGrid.createDiv({ cls: 'pantry-form-row' });
-        fibreGroup.createEl('label', { text: 'Fibre (g)', cls: 'pantry-form-label required' });
+        fibreGroup.createEl('label', { text: 'Fibre (g)', cls: 'pantry-form-label' });
         this.fibreInput = fibreGroup.createEl('input', {
             type: 'number',
             cls: 'pantry-form-input',
-            attr: { placeholder: '0', min: '0', step: '0.1', required: 'true' }
+            attr: { placeholder: '0', min: '0', step: '0.1' }
         });
+
+        this.setupMacroToCaloriesConversion();
 
         const infoDiv = formContainer.createDiv({ cls: 'pantry-form-row' });
         infoDiv.createEl('p', { text: '* Required fields', cls: 'pantry-form-desc', attr: { style: 'font-style: italic;' } });
@@ -146,6 +148,24 @@ export class ManualFoodEntryModal extends Modal {
         this.createActionButtons(formContainer);
 
         this.foodNameInput.focus();
+    }
+
+    private setupMacroToCaloriesConversion(): void {
+        const updateCalories = () => {
+            const protein = parseFloat(this.proteinInput.value) || 0;
+            const carbs = parseFloat(this.carbsInput.value) || 0;
+            const fat = parseFloat(this.fatInput.value) || 0;
+            
+            const totalCalories = (protein * 4) + (carbs * 4) + (fat * 9);
+            this.caloriesInput.value = totalCalories.toFixed(1);
+            
+            // Trigger the calories input event to update kJ
+            this.caloriesInput.dispatchEvent(new Event('input'));
+        };
+
+        this.component.registerDomEvent(this.proteinInput, 'input', updateCalories);
+        this.component.registerDomEvent(this.carbsInput, 'input', updateCalories);
+        this.component.registerDomEvent(this.fatInput, 'input', updateCalories);
     }
 
     private setupEnergyConversion(): void {
@@ -223,11 +243,11 @@ export class ManualFoodEntryModal extends Modal {
 
         if (!this.foodNameInput.value.trim()) errors.push('Food name is required.');
         if (isNaN(parseFloat(this.servingSizeInput.value))) errors.push('Serving size is invalid.');
-        if (isNaN(parseFloat(this.caloriesInput.value))) errors.push('Calories are invalid.');
+        if (this.caloriesInput.value && isNaN(parseFloat(this.caloriesInput.value))) errors.push('Calories are invalid.');
         if (isNaN(parseFloat(this.proteinInput.value))) errors.push('Protein is invalid.');
         if (isNaN(parseFloat(this.fatInput.value))) errors.push('Fat is invalid.');
         if (isNaN(parseFloat(this.carbsInput.value))) errors.push('Carbohydrates are invalid.');
-        if (isNaN(parseFloat(this.fibreInput.value))) errors.push('Fibre is invalid.');
+        if (this.fibreInput.value && isNaN(parseFloat(this.fibreInput.value))) errors.push('Fibre is invalid.');
 
         const foodName = this.foodNameInput.value.trim();
         const folderPath = normalizePath(this.plugin.settings.recipeFolder);
