@@ -26,10 +26,12 @@ export class TrackerCardRenderer {
             const monthIndex = parseInt(parts[1], 10) - 1;
             const day = parseInt(parts[2], 10);
             
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            const monthStr = months[monthIndex] || parts[1];
-            
-            return `${day} ${monthStr} ${year}`;
+            if (!isNaN(monthIndex) && !isNaN(day) && year.length === 4) {
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const monthStr = months[monthIndex] || parts[1];
+                
+                return `${day} ${monthStr} ${year}`;
+            }
         }
         return dateStr;
     }
