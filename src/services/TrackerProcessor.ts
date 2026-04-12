@@ -243,11 +243,34 @@ export class TrackerProcessor {
         return { name, servingSize };
     }
 
-    private parseDate(dateStr: string): Date | null {
+    public parseDate(dateStr: string): Date | null {
+        // Try legacy YYYY-MM-DD first to preserve exact local time behavior
         const parts = dateStr.split('-');
         if (parts.length === 3) {
-            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const part0 = parseInt(parts[0]);
+            const part1 = parseInt(parts[1]);
+            const part2 = parseInt(parts[2]);
+            if (!isNaN(part0) && !isNaN(part1) && !isNaN(part2) && parts[0].length === 4) {
+                return new Date(part0, part1 - 1, part2);
+            }
         }
+
+        // Try global moment if available (in Obsidian environment)
+        // @ts-ignore
+        if (typeof window !== 'undefined' && window.moment) {
+            // @ts-ignore
+            const m = window.moment(dateStr);
+            if (m.isValid()) {
+                return new Date(m.year(), m.month(), m.date());
+            }
+        }
+
+        // Try standard Date parsing (fallback for tests or unusual formats)
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+            return date;
+        }
+
         return null;
     }
 
@@ -286,7 +309,11 @@ export class TrackerProcessor {
 
                 const { aggregate } = await this.calculateDailyAggregate(data);
 
-                const dateKey = data.date;
+                const yyyy = blockDate.getFullYear();
+                const mm = String(blockDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(blockDate.getDate()).padStart(2, '0');
+                const dateKey = `${yyyy}-${mm}-${dd}`;
+
                 if (!dailyAggregates.has(dateKey)) {
                     dailyAggregates.set(dateKey, { aggregate: { calories: 0, protein: 0, fat: 0, carbs: 0, fibre: 0 }, files: [] });
                 }
